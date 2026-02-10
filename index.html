@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Welcome</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Home screen -->
+    <section id="screen-home" class="screen active">
+      <h1 class="question">Do you have an appointment?</h1>
+      <div class="buttons">
+        <button type="button" class="btn btn-primary" data-action="yes">Yes, I have an appointment.</button>
+        <button type="button" class="btn btn-primary" data-action="no">No, I do not have an appointment.</button>
+      </div>
+    </section>
+
+    <!-- Counselor selection -->
+    <section id="screen-counselor" class="screen">
+      <p class="instructions">Please select your counselor.</p>
+      <div id="counselor-buttons" class="buttons"></div>
+    </section>
+
+    <!-- Arrival confirmation (after selecting counselor) -->
+    <section id="screen-arrival" class="screen">
+      <p class="arrival-message">Your counselor has been notified you have arrived. Please have a seat and they will be with you shortly.</p>
+      <p id="arrival-countdown" class="countdown" aria-live="polite"></p>
+    </section>
+
+    <!-- No appointment -->
+    <section id="screen-no-appointment" class="screen">
+      <button type="button" class="back-btn" data-action="home" aria-label="Back to home">Back</button>
+      <p class="no-appointment-message">Please call the office to schedule an appointment.</p>
+      <p class="phone-wrap">Phone: <a id="office-phone-link" href="#" class="phone-link"></a></p>
+      <p id="no-appointment-countdown" class="countdown" aria-live="polite"></p>
+    </section>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
