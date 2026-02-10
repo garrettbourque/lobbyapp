@@ -15,5 +15,5 @@ const CONFIG = {
   ],
 
   // Seconds before auto-return to home
-  returnHomeSeconds: 15
+  returnHomeSeconds: 5
 };
