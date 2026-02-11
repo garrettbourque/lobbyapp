@@ -50,8 +50,16 @@
 
   function runShortcut(shortcutName) {
     var url = 'shortcuts://run-shortcut?name=' + encodeURIComponent(shortcutName);
-    // Open in new window so this page stays active and the 15s timer can run
-    window.open(url, '_blank');
+    // Use hidden iframe so we don't open a new tab (blank screen in Guided Access).
+    // iOS still hands off to Shortcuts; this page stays visible with the timer.
+    var iframe = document.createElement('iframe');
+    iframe.setAttribute('style', 'position:absolute;width:0;height:0;border:0;opacity:0;pointer-events:none');
+    iframe.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(iframe);
+    iframe.src = url;
+    setTimeout(function () {
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    }, 1000);
   }
 
   function buildCounselorButtons() {
