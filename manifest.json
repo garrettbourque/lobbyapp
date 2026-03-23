@@ -1,0 +1,10 @@
+{
+  "name": "Lobby",
+  "short_name": "Lobby",
+  "description": "Lobby check-in",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f5",
+  "theme_color": "#f5f5f5"
+}
