@@ -9,7 +9,7 @@ A static web app for an iPad lobby kiosk. Clients choose whether they have an ap
 2. **Push this project** to the repo:
    ```bash
    git init
-   git add index.html styles.css app.js config.js README.md
+   git add index.html styles.css app.js config.js manifest.json README.md
    git commit -m "Initial lobby kiosk app"
    git branch -M main
    git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
@@ -30,6 +30,13 @@ A static web app for an iPad lobby kiosk. Clients choose whether they have an ap
    - Open that URL in Safari
    - **Share** → **Add to Home Screen** so it opens like an app
    - Use **Guided Access** (Settings → Accessibility → Guided Access) for kiosk mode
+
+## On an Android tablet or phone
+
+1. **Open the same site** in Chrome (or another Chromium browser).
+2. **Add to Home screen** (Chrome menu → **Add to Home screen** or **Install app**) so it opens full-screen like an app.
+3. **Kiosk-style lock**: use **Screen pinning** (Settings → Security → App pinning) or a dedicated kiosk app if you need the device locked to this screen.
+4. **Notifications**: Android does not run Apple Shortcuts. For each counselor in `config.js`, set **`androidUrl`** to a URL your automation understands — for example an **HTTPS webhook** (IFTTT, Zapier, your server), or a **Tasker / MacroDroid** “open URL” trigger. Leaving `androidUrl` empty still shows the arrival message, but nothing is triggered in the background.
 
 ## Setup on the iPad
 

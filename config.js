@@ -7,11 +7,13 @@ const CONFIG = {
   // Tel link for tap-to-call (digits only)
   officePhoneTel: '5555555555',
 
-  // Counselors: display name and the exact name of the iOS Shortcut to run
+  // Counselors: display name and the exact name of the iOS Shortcut to run.
+  // On Android, iOS Shortcuts URLs do not work — set androidUrl per counselor to
+  // whatever opens your automation (webhook, Tasker / MacroDroid URL, etc.).
   counselors: [
-    { name: 'Counselor A', shortcutName: 'NotifyCounselorA' },
-    { name: 'Counselor B', shortcutName: 'NotifyCounselorB' },
-    { name: 'Counselor C', shortcutName: 'NotifyCounselorC' }
+    { name: 'Counselor A', shortcutName: 'NotifyCounselorA', androidUrl: '' },
+    { name: 'Counselor B', shortcutName: 'NotifyCounselorB', androidUrl: '' },
+    { name: 'Counselor C', shortcutName: 'NotifyCounselorC', androidUrl: '' }
   ],
 
   // Seconds before auto-return to home
