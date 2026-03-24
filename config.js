@@ -23,9 +23,10 @@ const CONFIG = {
   // Example with Outlook via Power Automate (duplicate per counselor or use one URL + branch in the flow):
   // { name: 'Counselor A', shortcutName: 'NotifyCounselorA', notifyUrl: 'https://prod-00.westus.logic.azure.com/workflows/YOUR_WORKFLOW_ID/triggers/manual/paths/invoke?...' },
   counselors: [
-    { name: 'Counselor A', shortcutName: 'NotifyCounselorA' },
-    { name: 'Counselor B', shortcutName: 'NotifyCounselorB' },
-    { name: 'Counselor C', shortcutName: 'NotifyCounselorC' }
+    { name: 'Emily', shortcutName: 'NotifyCounselorA' },
+    { name: 'Kristen', shortcutName: 'NotifyCounselorB' },
+    { name: 'Lauren', shortcutName: 'NotifyCounselorC' },
+    { name: 'Macie', shortcutName: 'NotifyCounselorD' }
   ],
 
   // Seconds before auto-return to home
