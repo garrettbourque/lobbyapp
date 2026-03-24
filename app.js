@@ -65,7 +65,35 @@
     }, 1000);
   }
 
+  function notifyDeliveryFor(counselor) {
+    if (counselor.notifyDelivery) return counselor.notifyDelivery;
+    if (CONFIG.notifyDelivery) return CONFIG.notifyDelivery;
+    return 'json-post';
+  }
+
+  function postNotifyJson(url, counselor) {
+    fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        counselorName: counselor.name,
+        shortcutName: counselor.shortcutName || ''
+      })
+    }).catch(function () {});
+  }
+
   function runCounselorNotify(counselor) {
+    var notifyUrl = counselor.notifyUrl && String(counselor.notifyUrl).trim();
+    if (notifyUrl) {
+      if (notifyDeliveryFor(counselor) === 'iframe') {
+        navigateNotifyUrl(notifyUrl);
+      } else {
+        postNotifyJson(notifyUrl, counselor);
+      }
+      return;
+    }
     if (isAndroid()) {
       var androidUrl = counselor.androidUrl && String(counselor.androidUrl).trim();
       if (androidUrl) {

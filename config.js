@@ -7,13 +7,25 @@ const CONFIG = {
   // Tel link for tap-to-call (digits only)
   officePhoneTel: '5555555555',
 
-  // Counselors: display name and the exact name of the iOS Shortcut to run.
-  // On Android, iOS Shortcuts URLs do not work — set androidUrl per counselor to
-  // whatever opens your automation (webhook, Tasker / MacroDroid URL, etc.).
+  // Optional default for counselor notifyDelivery ('json-post' | 'iframe'). Per-counselor
+  // notifyDelivery overrides this. See README "Outlook email" for Power Automate setup.
+  // notifyDelivery: 'json-post',
+
+  // Counselors:
+  // - notifyUrl: optional Microsoft Power Automate (or other) HTTPS webhook that sends
+  //   Outlook email. When set, used on iPad, Android, and desktop instead of Shortcuts
+  //   / androidUrl. Body is JSON: { counselorName, shortcutName }.
+  // - notifyDelivery: 'iframe' only if your service expects a GET in a hidden iframe
+  //   (e.g. some Zapier hooks). Default is json-post for Power Automate POST triggers.
+  // - shortcutName: used when notifyUrl is omitted (iOS Shortcuts).
+  // - androidUrl: optional when notifyUrl is omitted on Android only.
+  //
+  // Example with Outlook via Power Automate (duplicate per counselor or use one URL + branch in the flow):
+  // { name: 'Counselor A', shortcutName: 'NotifyCounselorA', notifyUrl: 'https://prod-00.westus.logic.azure.com/workflows/YOUR_WORKFLOW_ID/triggers/manual/paths/invoke?...' },
   counselors: [
-    { name: 'Counselor A', shortcutName: 'NotifyCounselorA', androidUrl: '' },
-    { name: 'Counselor B', shortcutName: 'NotifyCounselorB', androidUrl: '' },
-    { name: 'Counselor C', shortcutName: 'NotifyCounselorC', androidUrl: '' }
+    { name: 'Counselor A', shortcutName: 'NotifyCounselorA' },
+    { name: 'Counselor B', shortcutName: 'NotifyCounselorB' },
+    { name: 'Counselor C', shortcutName: 'NotifyCounselorC' }
   ],
 
   // Seconds before auto-return to home
