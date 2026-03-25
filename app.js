@@ -50,9 +50,34 @@
 
   function runShortcut(shortcutName) {
     var url = 'shortcuts://run-shortcut?name=' + encodeURIComponent(shortcutName);
-    // Safari and home-screen web apps block shortcuts:// in hidden iframes (Chrome on iOS may still allow it).
-    // Top-level navigation from the tap handler hands off to Shortcuts; use top for standalone mode.
+    // iOS behavior varies by browser/standalone + Guided Access.
+    // - Normal flow: navigate top-level so Shortcuts runs.
+    // - Guided Access: top-level navigation is often blocked (no app switch), so we
+    //   fall back to a hidden iframe attempt if the page never became hidden.
+    var leftApp = false;
+    function onVisibilityChange() {
+      if (document.visibilityState === 'hidden') leftApp = true;
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // First attempt: match a user gesture by navigating the top frame.
     window.top.location.href = url;
+
+    // If Guided Access prevented switching apps, the page likely stays visible;
+    // try the iframe method as a fallback.
+    setTimeout(function () {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (leftApp) return;
+
+      var iframe = document.createElement('iframe');
+      iframe.setAttribute('style', 'position:absolute;width:0;height:0;border:0;opacity:0;pointer-events:none');
+      iframe.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(iframe);
+      iframe.src = url;
+      setTimeout(function () {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      }, 1500);
+    }, 800);
   }
 
   function buildCounselorButtons() {
