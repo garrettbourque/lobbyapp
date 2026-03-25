@@ -50,15 +50,9 @@
 
   function runShortcut(shortcutName) {
     var url = 'shortcuts://run-shortcut?name=' + encodeURIComponent(shortcutName);
-    // Hidden iframe keeps this page visible (Guided Access); iOS hands off to Shortcuts.
-    var iframe = document.createElement('iframe');
-    iframe.setAttribute('style', 'position:absolute;width:0;height:0;border:0;opacity:0;pointer-events:none');
-    iframe.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(iframe);
-    iframe.src = url;
-    setTimeout(function () {
-      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-    }, 1000);
+    // Safari and home-screen web apps block shortcuts:// in hidden iframes (Chrome on iOS may still allow it).
+    // Top-level navigation from the tap handler hands off to Shortcuts; use top for standalone mode.
+    window.top.location.href = url;
   }
 
   function buildCounselorButtons() {
@@ -70,9 +64,9 @@
       btn.textContent = c.name;
       btn.dataset.shortcutName = c.shortcutName;
       btn.addEventListener('click', function () {
-        runShortcut(c.shortcutName);
         showScreen('arrival');
         startReturnHomeCountdown('arrival', arrivalCountdownEl);
+        runShortcut(c.shortcutName);
       });
       counselorButtonsContainer.appendChild(btn);
     });
