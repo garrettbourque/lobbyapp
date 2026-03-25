@@ -15,10 +15,6 @@
 
   let returnHomeTimer = null;
 
-  function isAndroid() {
-    return /Android/i.test(navigator.userAgent);
-  }
-
   function showScreen(screenId) {
     Object.values(screens).forEach(function (el) {
       el.classList.remove('active');
@@ -52,9 +48,9 @@
     }, 1000);
   }
 
-  function navigateNotifyUrl(url) {
-    if (!url) return;
-    // Hidden iframe keeps the kiosk page visible (iOS Guided Access / Android pinning).
+  function runShortcut(shortcutName) {
+    var url = 'shortcuts://run-shortcut?name=' + encodeURIComponent(shortcutName);
+    // Hidden iframe keeps this page visible (Guided Access); iOS hands off to Shortcuts.
     var iframe = document.createElement('iframe');
     iframe.setAttribute('style', 'position:absolute;width:0;height:0;border:0;opacity:0;pointer-events:none');
     iframe.setAttribute('aria-hidden', 'true');
@@ -63,57 +59,6 @@
     setTimeout(function () {
       if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
     }, 1000);
-  }
-
-  function notifyDeliveryFor(counselor) {
-    if (counselor.notifyDelivery) return counselor.notifyDelivery;
-    if (CONFIG.notifyDelivery) return CONFIG.notifyDelivery;
-    return 'json-post';
-  }
-
-  function postNotifyJson(url, counselor) {
-    fetch(url, {
-      method: 'POST',
-      mode: 'cors',
-      cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        counselorName: counselor.name,
-        shortcutName: counselor.shortcutName || ''
-      })
-    }).catch(function () {});
-  }
-
-  function openMailto(counselor) {
-    var raw = counselor.mailto && String(counselor.mailto).trim();
-    if (!raw) return false;
-    var href = /^mailto:/i.test(raw) ? raw : 'mailto:' + raw;
-    window.location.href = href;
-    return true;
-  }
-
-  function runCounselorNotify(counselor) {
-    var notifyUrl = counselor.notifyUrl && String(counselor.notifyUrl).trim();
-    if (notifyUrl) {
-      if (notifyDeliveryFor(counselor) === 'iframe') {
-        navigateNotifyUrl(notifyUrl);
-      } else {
-        postNotifyJson(notifyUrl, counselor);
-      }
-      return;
-    }
-    if (openMailto(counselor)) {
-      return;
-    }
-    if (isAndroid()) {
-      var androidUrl = counselor.androidUrl && String(counselor.androidUrl).trim();
-      if (androidUrl) {
-        navigateNotifyUrl(androidUrl);
-      }
-      return;
-    }
-    var iosUrl = 'shortcuts://run-shortcut?name=' + encodeURIComponent(counselor.shortcutName || '');
-    navigateNotifyUrl(iosUrl);
   }
 
   function buildCounselorButtons() {
@@ -125,7 +70,7 @@
       btn.textContent = c.name;
       btn.dataset.shortcutName = c.shortcutName;
       btn.addEventListener('click', function () {
-        runCounselorNotify(c);
+        runShortcut(c.shortcutName);
         showScreen('arrival');
         startReturnHomeCountdown('arrival', arrivalCountdownEl);
       });

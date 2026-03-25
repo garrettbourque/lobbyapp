@@ -7,11 +7,7 @@ const CONFIG = {
   // Tel link for tap-to-call (digits only)
   officePhoneTel: '5555555555',
 
-  // Counselors — iOS Shortcuts path (this setup):
-  // - name: label on the button.
-  // - shortcutName: exact name of the Shortcut on the iPad (shortcuts://run-shortcut?name=...).
-  //
-  // Optional (see README): mailto, notifyUrl, androidUrl — only if you add them later.
+  // Counselors: button label (name) and exact Shortcut name on the iPad.
   counselors: [
     { name: 'Emily', shortcutName: 'NotifyCounselorA' },
     { name: 'Kristen', shortcutName: 'NotifyCounselorB' },
