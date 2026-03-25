@@ -84,6 +84,14 @@
     }).catch(function () {});
   }
 
+  function openMailto(counselor) {
+    var raw = counselor.mailto && String(counselor.mailto).trim();
+    if (!raw) return false;
+    var href = /^mailto:/i.test(raw) ? raw : 'mailto:' + raw;
+    window.location.href = href;
+    return true;
+  }
+
   function runCounselorNotify(counselor) {
     var notifyUrl = counselor.notifyUrl && String(counselor.notifyUrl).trim();
     if (notifyUrl) {
@@ -92,6 +100,9 @@
       } else {
         postNotifyJson(notifyUrl, counselor);
       }
+      return;
+    }
+    if (openMailto(counselor)) {
       return;
     }
     if (isAndroid()) {
