@@ -48,36 +48,39 @@
     }, 1000);
   }
 
+  function postNotifyWebhook(url, counselor) {
+    fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        counselorName: counselor.name,
+        shortcutName: counselor.shortcutName || ''
+      })
+    }).catch(function () {});
+  }
+
   function runShortcut(shortcutName) {
     var url = 'shortcuts://run-shortcut?name=' + encodeURIComponent(shortcutName);
-    // iOS behavior varies by browser/standalone + Guided Access.
-    // - Normal flow: navigate top-level so Shortcuts runs.
-    // - Guided Access: top-level navigation is often blocked (no app switch), so we
-    //   fall back to a hidden iframe attempt if the page never became hidden.
-    var leftApp = false;
-    function onVisibilityChange() {
-      if (document.visibilityState === 'hidden') leftApp = true;
-    }
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    // First attempt: match a user gesture by navigating the top frame.
-    window.top.location.href = url;
-
-    // If Guided Access prevented switching apps, the page likely stays visible;
-    // try the iframe method as a fallback.
+    // Hidden iframe avoids handing off to the Shortcuts app when GA is off (Guided Access blocks this anyway — use notifyWebhookUrl).
+    var iframe = document.createElement('iframe');
+    iframe.setAttribute('style', 'position:absolute;width:0;height:0;border:0;opacity:0;pointer-events:none');
+    iframe.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(iframe);
+    iframe.src = url;
     setTimeout(function () {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      if (leftApp) return;
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    }, 1000);
+  }
 
-      var iframe = document.createElement('iframe');
-      iframe.setAttribute('style', 'position:absolute;width:0;height:0;border:0;opacity:0;pointer-events:none');
-      iframe.setAttribute('aria-hidden', 'true');
-      document.body.appendChild(iframe);
-      iframe.src = url;
-      setTimeout(function () {
-        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-      }, 1500);
-    }, 800);
+  function runCounselorNotify(counselor) {
+    var wh = CONFIG.notifyWebhookUrl && String(CONFIG.notifyWebhookUrl).trim();
+    if (wh) {
+      postNotifyWebhook(wh, counselor);
+      return;
+    }
+    runShortcut(counselor.shortcutName);
   }
 
   function buildCounselorButtons() {
@@ -91,7 +94,7 @@
       btn.addEventListener('click', function () {
         showScreen('arrival');
         startReturnHomeCountdown('arrival', arrivalCountdownEl);
-        runShortcut(c.shortcutName);
+        runCounselorNotify(c);
       });
       counselorButtonsContainer.appendChild(btn);
     });

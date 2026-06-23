@@ -31,11 +31,29 @@ A static web app for an **iPad** lobby kiosk. Clients choose whether they have a
    - **Share** → **Add to Home Screen** so it opens like an app
    - Use **Guided Access** (Settings → Accessibility → Guided Access) for kiosk mode
 
+## Guided Access and iOS Shortcuts (important)
+
+**Guided Access locks the iPad to one app.** Tapping a counselor runs `shortcuts://…`, which normally **hands off to the Shortcuts app**. Guided Access **blocks leaving Safari**, so that handoff does not complete and the shortcut **will not run**. That is an iOS limitation, not something this page can work around.
+
+**Ways to proceed:**
+
+1. **Use Guided Access + a webhook (recommended for kiosk)**  
+   Set **`notifyWebhookUrl`** in `config.js` to an **HTTPS** endpoint you control. On each counselor tap, the page **stays in Safari** and POSTs JSON:
+   ```json
+   { "counselorName": "Emily", "shortcutName": "NotifyCounselorA" }
+   ```
+   Your endpoint can send Outlook email, Slack, etc. The endpoint must respond with **CORS** headers so the browser is allowed to POST from your GitHub Pages URL (e.g. `Access-Control-Allow-Origin: https://YOUR_USER.github.io`). Small **Cloudflare Workers**, **Vercel**, or **Netlify** functions are typical.
+
+2. **Keep using Shortcuts only**  
+   Turn **Guided Access off** while testing or operating the lobby (or use a physical stand / supervision instead of GA). Shortcuts can run when the device is allowed to open the Shortcuts app.
+
 ## Setup on the iPad
 
-1. **Create Shortcuts** whose names match **`shortcutName`** in `config.js` (for example `NotifyCounselorA`, `NotifyCounselorB`, …). Each Shortcut should do what you need (such as sending email to that counselor).
+1. **Shortcuts path** (when **`notifyWebhookUrl`** is empty): Create Shortcuts whose names match **`shortcutName`** in `config.js`. Each Shortcut should do what you need (such as sending email).
 
-2. **Edit `config.js`** for counselor display names and Shortcut names, then commit and push so the live site updates.
+2. **Webhook path** (when **`notifyWebhookUrl`** is set): Implement your HTTPS endpoint; Shortcuts are not used for the tap (but you can keep `shortcutName` in JSON for logging).
+
+3. **Edit `config.js`** for names, optional **`notifyWebhookUrl`**, then commit and push so the live site updates.
 
 ## Updating the app
 
