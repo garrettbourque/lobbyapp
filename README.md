@@ -24,7 +24,8 @@ A static web app for an **iPad** lobby kiosk. Clients choose whether they have a
 
 4. **Open the site**  
    After a minute or two it will be at:
-   `https://YOUR_USERNAME.github.io/YOUR_REPO/`
+   
+   `https://garrett.bourque.github.io/lobbyapp/`
 
 5. **On the iPad**
    - Open that URL in **Safari**
