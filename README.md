@@ -12,7 +12,7 @@ A static web app for an **iPad** lobby kiosk. Clients choose whether they have a
    git add index.html styles.css app.js config.js README.md
    git commit -m "Initial lobby kiosk app"
    git branch -M main
-   git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
+   git remote add origin https://github.com/garrettbourque/lobbyapp.git
    git push -u origin main
    ```
 
