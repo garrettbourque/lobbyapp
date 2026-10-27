@@ -32,4 +32,7 @@
   //   npx wrangler secret put COUNSELORS
   // Value is JSON, for example:
   //   {"emily":{"name":"Emily","email":"emily@example.org"}, ...}
+  //
+  // ADMIN_EMAIL is a secret too: who gets told when a counselor email fails.
+  // It must also be a verified destination address in Email Routing.
 }

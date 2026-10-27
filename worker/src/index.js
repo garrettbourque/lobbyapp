@@ -44,8 +44,16 @@ export default {
       console.error('COUNSELORS secret is not valid JSON');
       return json({ ok: false, error: 'Server misconfigured' }, 500, cors);
     }
+    const time = new Date().toLocaleTimeString('en-US', {
+      timeZone: env.TIMEZONE || 'America/Chicago',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+    const label = String(body.counselorName || counselorId || 'unknown').slice(0, 50);
+
     const counselor = counselors[counselorId];
     if (!counselor || !counselor.email) {
+      await alertAdmin(env, label, time, 'No email address is set up for this counselor.');
       return json({ ok: false, error: 'Unknown counselor' }, 400, cors);
     }
 
@@ -54,12 +62,6 @@ export default {
     if (!success) {
       return json({ ok: false, error: 'Too many requests' }, 429, cors);
     }
-
-    const time = new Date().toLocaleTimeString('en-US', {
-      timeZone: env.TIMEZONE || 'America/Chicago',
-      hour: 'numeric',
-      minute: '2-digit'
-    });
     const text =
       'Hi ' + counselor.name + ',\n\n' +
       'A client checked in at the lobby kiosk at ' + time + ' and is waiting for you.\n\n' +
@@ -75,10 +77,33 @@ export default {
       return json({ ok: true, id: result.messageId }, 200, cors);
     } catch (e) {
       console.error('Email send failed:', e && e.message);
+      await alertAdmin(env, counselor.name, time, 'Sending to ' + counselor.email + ' failed: ' + (e && e.message));
       return json({ ok: false, error: 'Email failed' }, 502, cors);
     }
   }
 };
+
+// There is no front desk, so tell the admin (ADMIN_EMAIL secret) when a
+// client checked in but their counselor could not be emailed.
+async function alertAdmin(env, counselorName, time, reason) {
+  if (!env.ADMIN_EMAIL) return;
+  const { success } = await env.NOTIFY_LIMITER.limit({ key: 'admin-alert' });
+  if (!success) return;
+  try {
+    await env.EMAIL.send({
+      to: env.ADMIN_EMAIL,
+      from: { email: env.FROM_ADDRESS, name: env.FROM_NAME || 'Lobby Kiosk' },
+      subject: 'Kiosk could not notify ' + counselorName + ' (' + time + ')',
+      text:
+        'A client checked in at the lobby kiosk at ' + time + ' for ' + counselorName +
+        ', but their counselor was not emailed.\n\n' +
+        'Reason: ' + reason + '\n\n' +
+        'The client was told their counselor was notified, so they may be waiting.'
+    });
+  } catch (e) {
+    console.error('Admin alert failed:', e && e.message);
+  }
+}
 
 function json(data, status, headers) {
   return new Response(JSON.stringify(data), {
