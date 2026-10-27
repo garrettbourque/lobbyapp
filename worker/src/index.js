@@ -1,7 +1,12 @@
-// Lobby kiosk notify Worker.
-// The kiosk POSTs { counselorId } here; the Worker looks up that counselor's
-// email address (kept in the COUNSELORS secret, never in the public site)
-// and sends an arrival email through Cloudflare Email Service.
+// Lobby kiosk Worker.
+//
+// GET  /api/kiosk/:token          -> the facility's name, phone and clinician list (no emails)
+// POST /api/kiosk/:token/checkin  -> { clinicianId }: emails that clinician, alerts the
+//                                    facility admin if that isn't possible
+// POST /notify                    -> legacy single-facility endpoint (COUNSELORS secret),
+//                                    kept until every iPad uses a kiosk link
+//
+// Facilities, kiosks and clinicians live in D1 (see schema.sql, scripts/admin.mjs).
 
 export default {
   async fetch(request, env) {
@@ -11,99 +16,177 @@ export default {
     const originAllowed = allowedOrigins.indexOf(origin) !== -1;
     const cors = {
       'Access-Control-Allow-Origin': originAllowed ? origin : allowedOrigins[0],
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
       'Access-Control-Max-Age': '86400',
       'Vary': 'Origin'
     };
 
-    if (url.pathname !== '/notify') {
-      return json({ ok: false, error: 'Not found' }, 404, cors);
-    }
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
-    }
-    if (request.method !== 'POST') {
-      return json({ ok: false, error: 'Method not allowed' }, 405, cors);
     }
     if (!originAllowed) {
       return json({ ok: false, error: 'Forbidden' }, 403, cors);
     }
 
-    let body;
-    try {
-      body = await request.json();
-    } catch (e) {
-      return json({ ok: false, error: 'Invalid JSON' }, 400, cors);
+    const kioskMatch = url.pathname.match(/^\/api\/kiosk\/([A-Za-z0-9_-]{16,64})(\/checkin)?$/);
+    if (kioskMatch) {
+      const kiosk = await findKiosk(env, kioskMatch[1]);
+      if (!kiosk) {
+        return json({ ok: false, error: 'Unknown kiosk' }, 404, cors);
+      }
+      if (!kioskMatch[2] && request.method === 'GET') {
+        return getKiosk(env, kiosk, cors);
+      }
+      if (kioskMatch[2] && request.method === 'POST') {
+        return checkin(request, env, kiosk, cors);
+      }
+      return json({ ok: false, error: 'Method not allowed' }, 405, cors);
     }
 
-    const counselorId = String(body.counselorId || '').trim().toLowerCase();
-    let counselors;
-    try {
-      counselors = JSON.parse(env.COUNSELORS || '{}');
-    } catch (e) {
-      console.error('COUNSELORS secret is not valid JSON');
-      return json({ ok: false, error: 'Server misconfigured' }, 500, cors);
+    if (url.pathname === '/notify' && request.method === 'POST') {
+      return legacyNotify(request, env, cors);
     }
-    const time = new Date().toLocaleTimeString('en-US', {
-      timeZone: env.TIMEZONE || 'America/Chicago',
-      hour: 'numeric',
-      minute: '2-digit'
-    });
-    const label = String(body.counselorName || counselorId || 'unknown').slice(0, 50);
-
-    const counselor = counselors[counselorId];
-    if (!counselor || !counselor.email) {
-      await alertAdmin(env, label, time, 'No email address is set up for this counselor.');
-      return json({ ok: false, error: 'Unknown counselor' }, 400, cors);
-    }
-
-    // Stops repeated taps (or anyone abusing the public URL) from flooding inboxes.
-    const { success } = await env.NOTIFY_LIMITER.limit({ key: counselorId });
-    if (!success) {
-      return json({ ok: false, error: 'Too many requests' }, 429, cors);
-    }
-    const text =
-      'Hi ' + counselor.name + ',\n\n' +
-      'A client checked in at the lobby kiosk at ' + time + ' and is waiting for you.\n\n' +
-      '- Lobby kiosk';
-
-    try {
-      const result = await env.EMAIL.send({
-        to: counselor.email,
-        from: { email: env.FROM_ADDRESS, name: env.FROM_NAME || 'Lobby Kiosk' },
-        subject: 'Your client has arrived (' + time + ')',
-        text: text
-      });
-      return json({ ok: true, id: result.messageId }, 200, cors);
-    } catch (e) {
-      console.error('Email send failed:', e && e.message);
-      await alertAdmin(env, counselor.name, time, 'Sending to ' + counselor.email + ' failed: ' + (e && e.message));
-      return json({ ok: false, error: 'Email failed' }, 502, cors);
-    }
+    return json({ ok: false, error: 'Not found' }, 404, cors);
   }
 };
 
-// There is no front desk, so tell the admin (ADMIN_EMAIL secret) when a
-// client checked in but their counselor could not be emailed.
-async function alertAdmin(env, counselorName, time, reason) {
-  if (!env.ADMIN_EMAIL) return;
-  const { success } = await env.NOTIFY_LIMITER.limit({ key: 'admin-alert' });
+async function findKiosk(env, token) {
+  return env.DB.prepare(
+    'SELECT k.token, f.id AS facility_id, f.name, f.admin_email, f.office_phone, f.timezone ' +
+    'FROM kiosks k JOIN facilities f ON f.id = k.facility_id WHERE k.token = ?'
+  ).bind(token).first();
+}
+
+async function getKiosk(env, kiosk, cors) {
+  const { results } = await env.DB.prepare(
+    'SELECT id, name FROM clinicians WHERE facility_id = ? AND active = 1 ORDER BY sort_order, name'
+  ).bind(kiosk.facility_id).all();
+  return json({
+    ok: true,
+    facility: { name: kiosk.name, officePhone: kiosk.office_phone || '' },
+    clinicians: results
+  }, 200, cors);
+}
+
+async function checkin(request, env, kiosk, cors) {
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return json({ ok: false, error: 'Invalid JSON' }, 400, cors);
+  }
+
+  const clinician = await env.DB.prepare(
+    'SELECT id, name, email FROM clinicians WHERE id = ? AND facility_id = ? AND active = 1'
+  ).bind(String(body.clinicianId || ''), kiosk.facility_id).first();
+  if (!clinician) {
+    return json({ ok: false, error: 'Unknown clinician' }, 400, cors);
+  }
+
+  const time = formatTime(kiosk.timezone);
+  const status = await notifyClinician(env, {
+    limitKey: kiosk.facility_id + ':' + clinician.id,
+    alertKey: kiosk.facility_id,
+    name: clinician.name,
+    email: clinician.email,
+    adminEmail: kiosk.admin_email,
+    time: time
+  });
+
+  await env.DB.prepare('INSERT INTO checkins (facility_id, clinician_id, status) VALUES (?, ?, ?)')
+    .bind(kiosk.facility_id, clinician.id, status).run();
+
+  return json({ ok: status === 'sent', status: status }, status === 'sent' ? 200 : 202, cors);
+}
+
+async function legacyNotify(request, env, cors) {
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return json({ ok: false, error: 'Invalid JSON' }, 400, cors);
+  }
+
+  let counselors;
+  try {
+    counselors = JSON.parse(env.COUNSELORS || '{}');
+  } catch (e) {
+    console.error('COUNSELORS secret is not valid JSON');
+    return json({ ok: false, error: 'Server misconfigured' }, 500, cors);
+  }
+
+  const counselorId = String(body.counselorId || '').trim().toLowerCase();
+  const counselor = counselors[counselorId] || {};
+  const status = await notifyClinician(env, {
+    limitKey: counselorId,
+    alertKey: 'legacy',
+    name: counselor.name || String(body.counselorName || counselorId || 'unknown').slice(0, 50),
+    email: counselor.email,
+    adminEmail: env.ADMIN_EMAIL,
+    time: formatTime(env.TIMEZONE)
+  });
+  return json({ ok: status === 'sent', status: status }, status === 'sent' ? 200 : 202, cors);
+}
+
+// Emails one clinician, or tells the admin why that couldn't happen.
+// Returns sent | no_email | failed | rate_limited.
+async function notifyClinician(env, n) {
+  if (!n.email) {
+    await alertAdmin(env, n, 'No email address is set up for this clinician.');
+    return 'no_email';
+  }
+
+  // Stops repeated taps (or anyone abusing a kiosk link) from flooding inboxes.
+  const { success } = await env.NOTIFY_LIMITER.limit({ key: n.limitKey });
+  if (!success) return 'rate_limited';
+
+  try {
+    await env.EMAIL.send({
+      to: n.email,
+      from: { email: env.FROM_ADDRESS, name: env.FROM_NAME || 'Lobby Kiosk' },
+      subject: 'Your client has arrived (' + n.time + ')',
+      text:
+        'Hi ' + n.name + ',\n\n' +
+        'A client checked in at the lobby kiosk at ' + n.time + ' and is waiting for you.\n\n' +
+        '- Lobby kiosk'
+    });
+    return 'sent';
+  } catch (e) {
+    console.error('Email send failed:', e && e.message);
+    await alertAdmin(env, n, 'Sending to ' + n.email + ' failed: ' + (e && e.message));
+    return 'failed';
+  }
+}
+
+// There is no front desk, so tell the facility admin when a client checked in
+// but their clinician could not be emailed.
+async function alertAdmin(env, n, reason) {
+  if (!n.adminEmail) return;
+  const { success } = await env.NOTIFY_LIMITER.limit({ key: 'admin-alert:' + n.alertKey });
   if (!success) return;
   try {
     await env.EMAIL.send({
-      to: env.ADMIN_EMAIL,
+      to: n.adminEmail,
       from: { email: env.FROM_ADDRESS, name: env.FROM_NAME || 'Lobby Kiosk' },
-      subject: 'Kiosk could not notify ' + counselorName + ' (' + time + ')',
+      subject: 'Kiosk could not notify ' + n.name + ' (' + n.time + ')',
       text:
-        'A client checked in at the lobby kiosk at ' + time + ' for ' + counselorName +
-        ', but their counselor was not emailed.\n\n' +
+        'A client checked in at the lobby kiosk at ' + n.time + ' for ' + n.name +
+        ', but their clinician was not emailed.\n\n' +
         'Reason: ' + reason + '\n\n' +
-        'The client was told their counselor was notified, so they may be waiting.'
+        'The client was told their clinician was notified, so they may be waiting.'
     });
   } catch (e) {
     console.error('Admin alert failed:', e && e.message);
   }
+}
+
+function formatTime(timeZone) {
+  return new Date().toLocaleTimeString('en-US', {
+    timeZone: timeZone || 'America/Chicago',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
 }
 
 function json(data, status, headers) {

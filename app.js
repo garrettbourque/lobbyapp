@@ -13,6 +13,9 @@
   const officePhoneLink = document.getElementById('office-phone-link');
   const counselorButtonsContainer = document.getElementById('counselor-buttons');
 
+  // Secret from the kiosk link (lobbyapp.app/?kiosk=...) naming this iPad's facility.
+  const kioskToken = new URLSearchParams(window.location.search).get('kiosk');
+
   let returnHomeTimer = null;
 
   function showScreen(screenId) {
@@ -76,7 +79,22 @@
     }, 1000);
   }
 
+  function postCheckin(counselor) {
+    fetch(CONFIG.apiBaseUrl + '/api/kiosk/' + encodeURIComponent(kioskToken) + '/checkin', {
+      method: 'POST',
+      mode: 'cors',
+      cache: 'no-store',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clinicianId: counselor.id })
+    }).catch(function () {});
+  }
+
   function runCounselorNotify(counselor) {
+    if (kioskToken) {
+      postCheckin(counselor);
+      return;
+    }
     var wh = CONFIG.notifyWebhookUrl && String(CONFIG.notifyWebhookUrl).trim();
     if (wh) {
       postNotifyWebhook(wh, counselor);
@@ -85,14 +103,20 @@
     runShortcut(counselor.shortcutName);
   }
 
-  function buildCounselorButtons() {
+  function buildCounselorButtons(counselors) {
     counselorButtonsContainer.innerHTML = '';
-    CONFIG.counselors.forEach(function (c) {
+    if (!counselors.length) {
+      var msg = document.createElement('p');
+      msg.className = 'instructions';
+      msg.textContent = 'This kiosk is not set up yet.';
+      counselorButtonsContainer.appendChild(msg);
+      return;
+    }
+    counselors.forEach(function (c) {
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn btn-primary';
       btn.textContent = c.name;
-      btn.dataset.shortcutName = c.shortcutName;
       btn.addEventListener('click', function () {
         showScreen('arrival');
         startReturnHomeCountdown('arrival', arrivalCountdownEl);
@@ -102,11 +126,47 @@
     });
   }
 
-  function init() {
-    officePhoneLink.textContent = CONFIG.officePhone;
-    officePhoneLink.href = 'tel:' + CONFIG.officePhoneTel;
+  function setOfficePhone(phone) {
+    officePhoneLink.textContent = phone;
+    officePhoneLink.href = 'tel:' + String(phone).replace(/[^0-9+]/g, '');
+  }
 
-    buildCounselorButtons();
+  function applyKioskData(data) {
+    setOfficePhone(data.facility.officePhone);
+    buildCounselorButtons(data.clinicians);
+  }
+
+  // Kiosk-link mode: the facility's clinician list comes from the server and is
+  // refreshed periodically, so edits show up without touching the iPad. The last
+  // good copy is cached so a network blip at startup doesn't blank the kiosk.
+  function loadKiosk() {
+    var cacheKey = 'kiosk:' + kioskToken;
+    fetch(CONFIG.apiBaseUrl + '/api/kiosk/' + encodeURIComponent(kioskToken), { mode: 'cors', cache: 'no-store' })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (!data.ok) {
+          buildCounselorButtons([]);
+          return;
+        }
+        applyKioskData(data);
+        try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch (e) {}
+      })
+      .catch(function () {
+        var cached = null;
+        try { cached = JSON.parse(localStorage.getItem(cacheKey)); } catch (e) {}
+        if (cached) applyKioskData(cached);
+      });
+  }
+
+  function init() {
+    if (kioskToken) {
+      setOfficePhone('');
+      loadKiosk();
+      setInterval(loadKiosk, CONFIG.kioskRefreshMinutes * 60 * 1000);
+    } else {
+      setOfficePhone(CONFIG.officePhone);
+      buildCounselorButtons(CONFIG.counselors);
+    }
 
     document.body.addEventListener('click', function (e) {
       var btn = e.target.closest('[data-action]');

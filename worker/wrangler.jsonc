@@ -19,6 +19,15 @@
   // in Email Routing, so counselors each confirm their address once.
   "send_email": [{ "name": "EMAIL" }],
 
+  // Facilities, kiosks, clinicians and the check-in log (schema.sql).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "lobbyapp",
+      "database_id": "cff821b4-79bb-4cfc-b43c-ba1b174ee1f3"
+    }
+  ],
+
   "ratelimits": [
     {
       "name": "NOTIFY_LIMITER",
@@ -28,6 +37,7 @@
     }
   ]
 
+  // COUNSELORS and ADMIN_EMAIL only serve the legacy /notify endpoint.
   // COUNSELORS is a secret (not in this public file). Set it with:
   //   npx wrangler secret put COUNSELORS
   // Value is JSON, for example:

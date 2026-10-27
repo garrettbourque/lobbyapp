@@ -25,7 +25,7 @@ A static web app for an **iPad** lobby kiosk. Clients choose whether they have a
 4. **Open the site**  
    After a minute or two it will be at:
    
-   `https://garrettbourque.github.io/lobbyapp/`
+   `https://lobbyapp.app/` (custom domain on Cloudflare DNS; the old `https://garrettbourque.github.io/lobbyapp/` redirects there)
 
 5. **On the iPad**
    - Open that URL in **Safari**

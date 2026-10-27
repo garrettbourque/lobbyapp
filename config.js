@@ -1,7 +1,15 @@
 // Lobby kiosk configuration
-// Edit counselor names and Shortcut names to match the Shortcuts you create on the iPad.
+//
+// Kiosk links (lobbyapp.app/?kiosk=...) load their facility, phone and clinicians from
+// the Worker at apiBaseUrl; manage those with worker/scripts/admin.mjs.
+// Everything below apiBaseUrl/kioskRefreshMinutes is the legacy setup, used only when
+// the page is opened without a kiosk link.
 
 const CONFIG = {
+  apiBaseUrl: 'https://lobbyapp.bourque-garrett.workers.dev',
+  // How often a kiosk re-fetches its clinician list.
+  kioskRefreshMinutes: 5,
+
   // Phone number shown on the "No appointment" screen (format for display)
   officePhone: '(555) 555-5555',
   // Tel link for tap-to-call (digits only)
