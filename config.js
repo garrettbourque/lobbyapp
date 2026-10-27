@@ -11,14 +11,16 @@ const CONFIG = {
   // Set a single HTTPS URL to POST JSON to instead (stays inside Safari). Your endpoint
   // should send email / notify staff; it must allow CORS from your GitHub Pages origin.
   // Leave empty to use iOS Shortcuts only (works when Guided Access is off).
-  // notifyWebhookUrl: 'https://your-worker.workers.dev/notify',
+  // Cloudflare Worker in worker/ that emails the selected counselor.
+  notifyWebhookUrl: 'https://lobbyapp.bourque-garrett.workers.dev/notify',
 
-  // Counselors: button label (name) and exact Shortcut name on the iPad (used when notifyWebhookUrl is empty).
+  // Counselors: button label (name), id (key in the Worker's COUNSELORS secret, which holds
+  // the email address), and exact Shortcut name on the iPad (used when notifyWebhookUrl is empty).
   counselors: [
-    { name: 'Emily', shortcutName: 'NotifyCounselorA' },
-    { name: 'Kristen', shortcutName: 'NotifyCounselorB' },
-    { name: 'Lauren', shortcutName: 'NotifyCounselorC' },
-    { name: 'Macie', shortcutName: 'NotifyCounselorD' }
+    { id: 'emily', name: 'Emily', shortcutName: 'NotifyCounselorA' },
+    { id: 'kristen', name: 'Kristen', shortcutName: 'NotifyCounselorB' },
+    { id: 'lauren', name: 'Lauren', shortcutName: 'NotifyCounselorC' },
+    { id: 'macie', name: 'Macie', shortcutName: 'NotifyCounselorD' }
   ],
 
   // Seconds before auto-return to home

@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "lobbyapp",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-15",
+  "observability": { "enabled": true },
+
+  "vars": {
+    // Only the kiosk site may call this Worker.
+    "ALLOWED_ORIGIN": "https://garrettbourque.github.io",
+    // Sender address on the Cloudflare domain.
+    "FROM_ADDRESS": "kiosk@lobbyapp.app",
+    "FROM_NAME": "Lobby Kiosk",
+    // Time zone used for the arrival time in the email (Houston, TX).
+    "TIMEZONE": "America/Chicago"
+  },
+
+  // No restriction attribute: can only send to destination addresses verified
+  // in Email Routing, so counselors each confirm their address once.
+  "send_email": [{ "name": "EMAIL" }],
+
+  "ratelimits": [
+    {
+      "name": "NOTIFY_LIMITER",
+      "namespace_id": "1001",
+      // At most 3 emails per counselor per minute.
+      "simple": { "limit": 3, "period": 60 }
+    }
+  ]
+
+  // COUNSELORS is a secret (not in this public file). Set it with:
+  //   npx wrangler secret put COUNSELORS
+  // Value is JSON, for example:
+  //   {"emily":{"name":"Emily","email":"emily@example.org"}, ...}
+}

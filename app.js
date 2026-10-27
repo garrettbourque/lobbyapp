@@ -53,8 +53,10 @@
       method: 'POST',
       mode: 'cors',
       cache: 'no-store',
+      keepalive: true,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        counselorId: counselor.id,
         counselorName: counselor.name,
         shortcutName: counselor.shortcutName || ''
       })

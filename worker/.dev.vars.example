@@ -1,0 +1,2 @@
+# Copy to .dev.vars for `npm run dev` (local only, never committed).
+COUNSELORS={"emily":{"name":"Emily","email":"you@example.com"}}
