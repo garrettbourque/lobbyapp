@@ -65,3 +65,5 @@ git commit -m "Describe your change"
 git push
 ```
 GitHub Pages will redeploy automatically; refresh the app on the iPad to see changes.
+
+The `worker/` folder also redeploys automatically: the Cloudflare `lobbyapp` Worker is connected to this repo (Workers Builds, root directory `/worker`), so every push to `main` runs `npx wrangler deploy` there. Facilities, clinicians and kiosks are data, not code; change them with `node scripts/admin.mjs` from `worker/` (no push needed).
