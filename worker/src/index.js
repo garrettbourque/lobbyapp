@@ -7,9 +7,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
-    const allowedOrigin = env.ALLOWED_ORIGIN;
+    const allowedOrigins = String(env.ALLOWED_ORIGINS || '').split(',').map(function (o) { return o.trim(); });
+    const originAllowed = allowedOrigins.indexOf(origin) !== -1;
     const cors = {
-      'Access-Control-Allow-Origin': allowedOrigin,
+      'Access-Control-Allow-Origin': originAllowed ? origin : allowedOrigins[0],
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
       'Access-Control-Max-Age': '86400',
@@ -25,7 +26,7 @@ export default {
     if (request.method !== 'POST') {
       return json({ ok: false, error: 'Method not allowed' }, 405, cors);
     }
-    if (origin !== allowedOrigin) {
+    if (!originAllowed) {
       return json({ ok: false, error: 'Forbidden' }, 403, cors);
     }
 

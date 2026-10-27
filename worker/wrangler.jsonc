@@ -6,8 +6,8 @@
   "observability": { "enabled": true },
 
   "vars": {
-    // Only the kiosk site may call this Worker.
-    "ALLOWED_ORIGIN": "https://garrettbourque.github.io",
+    // Only the kiosk site may call this Worker (comma-separated).
+    "ALLOWED_ORIGINS": "https://lobbyapp.app,https://www.lobbyapp.app,https://garrettbourque.github.io",
     // Sender address on the Cloudflare domain.
     "FROM_ADDRESS": "kiosk@lobbyapp.app",
     "FROM_NAME": "Lobby Kiosk",
