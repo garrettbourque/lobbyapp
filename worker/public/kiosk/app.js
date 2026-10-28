@@ -12,6 +12,8 @@
   const noAppointmentCountdownEl = document.getElementById('no-appointment-countdown');
   const officePhoneLink = document.getElementById('office-phone-link');
   const counselorButtonsContainer = document.getElementById('counselor-buttons');
+  const welcomeEl = document.getElementById('welcome-message');
+  const defaultWelcome = welcomeEl.textContent;
 
   // Secret from the kiosk link (lobbyapp.app/?kiosk=...) naming this iPad's facility.
   const kioskToken = new URLSearchParams(window.location.search).get('kiosk');
@@ -91,6 +93,7 @@
   }
 
   function applyKioskData(data) {
+    welcomeEl.textContent = (data.kiosk && data.kiosk.welcomeMessage) || defaultWelcome;
     setOfficePhone(data.facility.officePhone);
     buildCounselorButtons(data.clinicians);
   }

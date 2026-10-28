@@ -151,38 +151,83 @@
       return;
     }
     state.kiosks.forEach(function (k) {
-      var input = el('input', { type: 'text', readonly: '', 'aria-label': 'Kiosk link for ' + k.label });
-      input.value = k.link;
-      var copy = el('button', { type: 'button', className: 'btn btn-secondary btn-small', text: 'Copy' });
-      var remove = el('button', { type: 'button', className: 'btn btn-danger btn-small', text: 'Remove' });
-
-      copy.addEventListener('click', function () {
-        input.select();
-        var done = function () { copy.textContent = 'Copied'; setTimeout(function () { copy.textContent = 'Copy'; }, 1500); };
-        if (navigator.clipboard) navigator.clipboard.writeText(k.link).then(done, function () { document.execCommand('copy'); done(); });
-        else { document.execCommand('copy'); done(); }
-      });
-      remove.addEventListener('click', function () {
-        if (!window.confirm('Remove "' + k.label + '"? Its link will stop working on that iPad.')) return;
-        remove.disabled = true;
-        api('DELETE', '/api/kiosks/' + encodeURIComponent(k.token)).then(function (r) {
-          if (!r.data.ok) {
-            remove.disabled = false;
-            pageNotice(r.data.error);
-            return;
-          }
-          load();
-        });
-      });
-
-      list.appendChild(el('li', {}, [
-        el('div', { className: 'who', style: 'flex: 1' }, [
-          el('strong', { text: k.label }),
-          el('div', { className: 'link-box' }, [input, copy])
-        ]),
-        el('div', { className: 'row-actions' }, [remove])
-      ]));
+      list.appendChild(kioskRow(k));
     });
+  }
+
+  function kioskRow(k) {
+    var input = el('input', { type: 'text', readonly: '', 'aria-label': 'Kiosk link for ' + k.label });
+    input.value = k.link;
+    var copy = el('button', { type: 'button', className: 'btn btn-secondary btn-small', text: 'Copy' });
+    var options = el('button', { type: 'button', className: 'btn btn-secondary btn-small', text: 'Options' });
+    var remove = el('button', { type: 'button', className: 'btn btn-danger btn-small', text: 'Remove' });
+
+    copy.addEventListener('click', function () {
+      input.select();
+      var done = function () { copy.textContent = 'Copied'; setTimeout(function () { copy.textContent = 'Copy'; }, 1500); };
+      if (navigator.clipboard) navigator.clipboard.writeText(k.link).then(done, function () { document.execCommand('copy'); done(); });
+      else { document.execCommand('copy'); done(); }
+    });
+    remove.addEventListener('click', function () {
+      if (!window.confirm('Remove "' + k.label + '"? Its link will stop working on that iPad.')) return;
+      remove.disabled = true;
+      api('DELETE', '/api/kiosks/' + encodeURIComponent(k.token)).then(function (r) {
+        if (!r.data.ok) {
+          remove.disabled = false;
+          pageNotice(r.data.error);
+          return;
+        }
+        load();
+      });
+    });
+
+    var row = el('li', {}, [
+      el('div', { className: 'who', style: 'flex: 1' }, [
+        el('strong', { text: k.label }),
+        el('span', { text: 'Welcome message: ' + (k.welcomeMessage || 'Do you have an appointment? (default)') }),
+        el('div', { className: 'link-box' }, [input, copy])
+      ]),
+      el('div', { className: 'row-actions' }, [options, remove])
+    ]);
+    options.addEventListener('click', function () {
+      row.replaceWith(kioskOptionsRow(k));
+    });
+    return row;
+  }
+
+  function kioskOptionsRow(k) {
+    var label = el('input', { type: 'text', id: 'kl-' + k.token, maxlength: '40', placeholder: 'Lobby iPad' });
+    label.value = k.label;
+    var welcome = el('input', { type: 'text', id: 'kw-' + k.token, maxlength: '120', placeholder: 'Do you have an appointment?' });
+    welcome.value = k.welcomeMessage;
+    var save = el('button', { type: 'submit', className: 'btn btn-small', text: 'Save' });
+    var cancel = el('button', { type: 'button', className: 'btn btn-secondary btn-small', text: 'Cancel' });
+    var notice = el('div', { className: 'notice', style: 'grid-column: 1 / -1; margin: 0' });
+    var form = el('form', { novalidate: '' }, [
+      el('div', {}, [el('label', { for: label.id, text: 'Kiosk name' }), label]),
+      el('div', {}, [el('label', { for: welcome.id, text: 'Welcome message (leave blank for the default)' }), welcome]),
+      el('div', { className: 'row-actions' }, [save, cancel]),
+      notice
+    ]);
+    var row = el('li', {}, [form]);
+
+    cancel.addEventListener('click', function () { row.replaceWith(kioskRow(k)); });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      save.disabled = true;
+      api('PUT', '/api/kiosks/' + encodeURIComponent(k.token), {
+        label: label.value, welcomeMessage: welcome.value
+      }).then(function (r) {
+        save.disabled = false;
+        if (!r.data.ok) {
+          Lobby.showNotice(notice, r.data.error);
+          return;
+        }
+        load();
+      });
+    });
+    setTimeout(function () { welcome.focus(); }, 0);
+    return row;
   }
 
   function renderFacility() {

@@ -1,7 +1,7 @@
 // LobbyApp Worker: serves the site (public/) and its API.
 //
 // Kiosk (token in the link, no sign-in):
-//   GET  /api/kiosk/:token            facility name, phone and clinician list (no emails)
+//   GET  /api/kiosk/:token            facility name, phone, welcome message and clinician list (no emails)
 //   POST /api/kiosk/:token/checkin    { clinicianId } -> emails that clinician
 // Accounts:
 //   POST /api/signup | /api/signin | /api/signout | /api/forgot | /api/reset
@@ -9,7 +9,7 @@
 //   GET  /api/account                 everything the dashboard shows
 //   PUT  /api/facility
 //   POST /api/clinicians, PUT|DELETE /api/clinicians/:id
-//   POST /api/kiosks, DELETE /api/kiosks/:token
+//   POST /api/kiosks, PUT|DELETE /api/kiosks/:token
 // Anyone:
 //   POST /api/contact
 //
@@ -18,7 +18,7 @@
 import { json, fail } from './util.js';
 import { getUser, signup, signin, signout, forgotPassword, resetPassword } from './auth.js';
 import { findKiosk, getKiosk, checkin } from './kiosk.js';
-import { getAccount, updateFacility, addClinician, updateClinician, removeClinician, addKiosk, removeKiosk, contact } from './account.js';
+import { getAccount, updateFacility, addClinician, updateClinician, removeClinician, addKiosk, updateKiosk, removeKiosk, contact } from './account.js';
 
 export default {
   async fetch(request, env) {
@@ -75,8 +75,9 @@ async function handleApi(request, env, url) {
   if (clinicianMatch && method === 'PUT') return updateClinician(request, env, user, clinicianMatch[1]);
   if (clinicianMatch && method === 'DELETE') return removeClinician(env, user, clinicianMatch[1]);
 
-  const kioskDelete = path.match(/^\/api\/kiosks\/([A-Za-z0-9_-]{16,64})$/);
-  if (kioskDelete && method === 'DELETE') return removeKiosk(env, user, kioskDelete[1]);
+  const kioskOwned = path.match(/^\/api\/kiosks\/([A-Za-z0-9_-]{16,64})$/);
+  if (kioskOwned && method === 'PUT') return updateKiosk(request, env, user, kioskOwned[1]);
+  if (kioskOwned && method === 'DELETE') return removeKiosk(env, user, kioskOwned[1]);
 
   return fail('Not found', 404);
 }

@@ -6,7 +6,7 @@ import { sendEmail, trySendEmail } from './email.js';
 
 export async function findKiosk(env, token) {
   return env.DB.prepare(
-    'SELECT k.token, f.id AS facility_id, f.name, f.admin_email, f.office_phone, f.timezone ' +
+    'SELECT k.token, k.welcome_message, f.id AS facility_id, f.name, f.admin_email, f.office_phone, f.timezone ' +
     'FROM kiosks k JOIN facilities f ON f.id = k.facility_id WHERE k.token = ?'
   ).bind(token).first();
 }
@@ -18,6 +18,7 @@ export async function getKiosk(env, kiosk, headers) {
   return json({
     ok: true,
     facility: { name: kiosk.name, officePhone: kiosk.office_phone || '' },
+    kiosk: { welcomeMessage: kiosk.welcome_message || '' },
     clinicians: results
   }, 200, headers);
 }
