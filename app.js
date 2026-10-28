@@ -51,34 +51,6 @@
     }, 1000);
   }
 
-  function postNotifyWebhook(url, counselor) {
-    fetch(url, {
-      method: 'POST',
-      mode: 'cors',
-      cache: 'no-store',
-      keepalive: true,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        counselorId: counselor.id,
-        counselorName: counselor.name,
-        shortcutName: counselor.shortcutName || ''
-      })
-    }).catch(function () {});
-  }
-
-  function runShortcut(shortcutName) {
-    var url = 'shortcuts://run-shortcut?name=' + encodeURIComponent(shortcutName);
-    // Hidden iframe avoids handing off to the Shortcuts app when GA is off (Guided Access blocks this anyway — use notifyWebhookUrl).
-    var iframe = document.createElement('iframe');
-    iframe.setAttribute('style', 'position:absolute;width:0;height:0;border:0;opacity:0;pointer-events:none');
-    iframe.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(iframe);
-    iframe.src = url;
-    setTimeout(function () {
-      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-    }, 1000);
-  }
-
   function postCheckin(counselor) {
     fetch(CONFIG.apiBaseUrl + '/api/kiosk/' + encodeURIComponent(kioskToken) + '/checkin', {
       method: 'POST',
@@ -88,19 +60,6 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clinicianId: counselor.id })
     }).catch(function () {});
-  }
-
-  function runCounselorNotify(counselor) {
-    if (kioskToken) {
-      postCheckin(counselor);
-      return;
-    }
-    var wh = CONFIG.notifyWebhookUrl && String(CONFIG.notifyWebhookUrl).trim();
-    if (wh) {
-      postNotifyWebhook(wh, counselor);
-      return;
-    }
-    runShortcut(counselor.shortcutName);
   }
 
   function buildCounselorButtons(counselors) {
@@ -120,7 +79,7 @@
       btn.addEventListener('click', function () {
         showScreen('arrival');
         startReturnHomeCountdown('arrival', arrivalCountdownEl);
-        runCounselorNotify(c);
+        postCheckin(c);
       });
       counselorButtonsContainer.appendChild(btn);
     });
@@ -136,9 +95,9 @@
     buildCounselorButtons(data.clinicians);
   }
 
-  // Kiosk-link mode: the facility's clinician list comes from the server and is
-  // refreshed periodically, so edits show up without touching the iPad. The last
-  // good copy is cached so a network blip at startup doesn't blank the kiosk.
+  // The facility's clinician list comes from the server and is refreshed
+  // periodically, so edits show up without touching the iPad. The last good
+  // copy is cached so a network blip at startup doesn't blank the kiosk.
   function loadKiosk() {
     var cacheKey = 'kiosk:' + kioskToken;
     fetch(CONFIG.apiBaseUrl + '/api/kiosk/' + encodeURIComponent(kioskToken), { mode: 'cors', cache: 'no-store' })
@@ -159,13 +118,12 @@
   }
 
   function init() {
+    setOfficePhone('');
     if (kioskToken) {
-      setOfficePhone('');
       loadKiosk();
       setInterval(loadKiosk, CONFIG.kioskRefreshMinutes * 60 * 1000);
     } else {
-      setOfficePhone(CONFIG.officePhone);
-      buildCounselorButtons(CONFIG.counselors);
+      buildCounselorButtons([]);
     }
 
     document.body.addEventListener('click', function (e) {

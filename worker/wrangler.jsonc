@@ -7,16 +7,14 @@
 
   "vars": {
     // Only the kiosk site may call this Worker (comma-separated).
-    "ALLOWED_ORIGINS": "https://lobbyapp.app,https://www.lobbyapp.app,https://garrettbourque.github.io",
+    "ALLOWED_ORIGINS": "https://lobbyapp.app,https://www.lobbyapp.app",
     // Sender address on the Cloudflare domain.
     "FROM_ADDRESS": "kiosk@lobbyapp.app",
-    "FROM_NAME": "Lobby Kiosk",
-    // Time zone used for the arrival time in the email (Houston, TX).
-    "TIMEZONE": "America/Chicago"
+    "FROM_NAME": "Lobby Kiosk"
   },
 
   // No restriction attribute: can only send to destination addresses verified
-  // in Email Routing, so counselors each confirm their address once.
+  // in Email Routing, so clinicians and facility admins each confirm their address once.
   "send_email": [{ "name": "EMAIL" }],
 
   // Facilities, kiosks, clinicians and the check-in log (schema.sql).
@@ -32,17 +30,8 @@
     {
       "name": "NOTIFY_LIMITER",
       "namespace_id": "1001",
-      // At most 3 emails per counselor per minute.
+      // At most 3 emails per clinician per minute.
       "simple": { "limit": 3, "period": 60 }
     }
   ]
-
-  // COUNSELORS and ADMIN_EMAIL only serve the legacy /notify endpoint.
-  // COUNSELORS is a secret (not in this public file). Set it with:
-  //   npx wrangler secret put COUNSELORS
-  // Value is JSON, for example:
-  //   {"emily":{"name":"Emily","email":"emily@example.org"}, ...}
-  //
-  // ADMIN_EMAIL is a secret too: who gets told when a counselor email fails.
-  // It must also be a verified destination address in Email Routing.
 }

@@ -3,8 +3,6 @@
 // GET  /api/kiosk/:token          -> the facility's name, phone and clinician list (no emails)
 // POST /api/kiosk/:token/checkin  -> { clinicianId }: emails that clinician, alerts the
 //                                    facility admin if that isn't possible
-// POST /notify                    -> legacy single-facility endpoint (COUNSELORS secret),
-//                                    kept until every iPad uses a kiosk link
 //
 // Facilities, kiosks and clinicians live in D1 (see schema.sql, scripts/admin.mjs).
 
@@ -44,9 +42,6 @@ export default {
       return json({ ok: false, error: 'Method not allowed' }, 405, cors);
     }
 
-    if (url.pathname === '/notify' && request.method === 'POST') {
-      return legacyNotify(request, env, cors);
-    }
     return json({ ok: false, error: 'Not found' }, 404, cors);
   }
 };
@@ -97,35 +92,6 @@ async function checkin(request, env, kiosk, cors) {
   await env.DB.prepare('INSERT INTO checkins (facility_id, clinician_id, status) VALUES (?, ?, ?)')
     .bind(kiosk.facility_id, clinician.id, status).run();
 
-  return json({ ok: status === 'sent', status: status }, status === 'sent' ? 200 : 202, cors);
-}
-
-async function legacyNotify(request, env, cors) {
-  let body;
-  try {
-    body = await request.json();
-  } catch (e) {
-    return json({ ok: false, error: 'Invalid JSON' }, 400, cors);
-  }
-
-  let counselors;
-  try {
-    counselors = JSON.parse(env.COUNSELORS || '{}');
-  } catch (e) {
-    console.error('COUNSELORS secret is not valid JSON');
-    return json({ ok: false, error: 'Server misconfigured' }, 500, cors);
-  }
-
-  const counselorId = String(body.counselorId || '').trim().toLowerCase();
-  const counselor = counselors[counselorId] || {};
-  const status = await notifyClinician(env, {
-    limitKey: counselorId,
-    alertKey: 'legacy',
-    name: counselor.name || String(body.counselorName || counselorId || 'unknown').slice(0, 50),
-    email: counselor.email,
-    adminEmail: env.ADMIN_EMAIL,
-    time: formatTime(env.TIMEZONE)
-  });
   return json({ ok: status === 'sent', status: status }, status === 'sent' ? 200 : 202, cors);
 }
 
