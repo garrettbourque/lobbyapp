@@ -12,16 +12,12 @@ The owner switches between two Windows computers a couple of times a day.
 ## Current status
 
 - Live at https://lobbyapp.app as a multi-customer service. Free during the beta; no billing yet.
-- First customer: Bloom Counseling (facility `0nTV93rS`), owned by the owner's own account. Houston, Central time.
-- Only Kristen's notice email is set up and verified. The owner is waiting on the other counselors' addresses (Emily, Lauren, Macie).
+- Bloom Counseling (facility `0nTV93rS`, owned by the owner's own account) is now a test case for the site, not a live customer. The owner removed its counselors (as of 2026-10-28), so there's no pending work on their email addresses; don't bring it up.
 - No front desk: when a notice can't be sent, the alert goes to the owner (the facility's alert email).
 
-## To do when the counselors' emails arrive
-
-1. Add each address as a destination in Cloudflare Email Routing (zone lobbyapp.app). Cloudflare emails them a confirmation link they must click once.
-2. Set the email on the person, either from the dashboard (**Edit**) or with `node scripts/admin.mjs clinician set <clinicianId> --email <address>` from `worker/` (`node scripts/admin.mjs list` shows the ids).
-
 ## Things to know
+
+- To give a person a working notice email: add the address as a destination in Cloudflare Email Routing (zone lobbyapp.app), where the person must click a confirmation link once. Then set it from the dashboard (**Edit**) or with `node scripts/admin.mjs clinician set <clinicianId> --email <address>` from `worker/` (`node scripts/admin.mjs list` shows the ids).
 
 - The account is on the free Workers plan, so email only reaches addresses verified in Email Routing. That applies to every customer's people and to password-reset emails. Workers Paid ($5/mo) lifts it; the owner said "not yet".
 - Changes to the production setup (DNS records, deploys, domain cutovers) need the owner's explicit go-ahead.
