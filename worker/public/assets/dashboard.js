@@ -4,6 +4,7 @@
   'use strict';
 
   var api = Lobby.api;
+  var el = Lobby.el;
   var state = null;
 
   var STATUS_TEXT = {
@@ -22,17 +23,6 @@
     'America/Anchorage': 'Alaska',
     'Pacific/Honolulu': 'Hawaii'
   };
-
-  function el(tag, attrs, children) {
-    var node = document.createElement(tag);
-    Object.keys(attrs || {}).forEach(function (k) {
-      if (k === 'text') node.textContent = attrs[k];
-      else if (k === 'className') node.className = attrs[k];
-      else node.setAttribute(k, attrs[k]);
-    });
-    (children || []).forEach(function (c) { if (c) node.appendChild(c); });
-    return node;
-  }
 
   function pageNotice(text, kind) {
     Lobby.showNotice(document.getElementById('page-notice'), text, kind);
@@ -159,7 +149,7 @@
     var input = el('input', { type: 'text', readonly: '', 'aria-label': 'Kiosk link for ' + k.label });
     input.value = k.link;
     var copy = el('button', { type: 'button', className: 'btn btn-secondary btn-small', text: 'Copy' });
-    var options = el('button', { type: 'button', className: 'btn btn-secondary btn-small', text: 'Options' });
+    var screens = el('a', { className: 'btn btn-secondary btn-small', href: '/screens#' + k.token, text: 'Edit screens' });
     var remove = el('button', { type: 'button', className: 'btn btn-danger btn-small', text: 'Remove' });
 
     copy.addEventListener('click', function () {
@@ -181,53 +171,14 @@
       });
     });
 
-    var row = el('li', {}, [
+    return el('li', {}, [
       el('div', { className: 'who', style: 'flex: 1' }, [
         el('strong', { text: k.label }),
-        el('span', { text: 'Welcome message: ' + (k.welcomeMessage || 'Do you have an appointment? (default)') }),
+        el('span', { text: (k.customized ? 'Custom screens. ' : 'Default screens. ') + 'Starts with: ' + (k.flow.screens[0].message || '(no message)') }),
         el('div', { className: 'link-box' }, [input, copy])
       ]),
-      el('div', { className: 'row-actions' }, [options, remove])
+      el('div', { className: 'row-actions' }, [screens, remove])
     ]);
-    options.addEventListener('click', function () {
-      row.replaceWith(kioskOptionsRow(k));
-    });
-    return row;
-  }
-
-  function kioskOptionsRow(k) {
-    var label = el('input', { type: 'text', id: 'kl-' + k.token, maxlength: '40', placeholder: 'Lobby iPad' });
-    label.value = k.label;
-    var welcome = el('input', { type: 'text', id: 'kw-' + k.token, maxlength: '120', placeholder: 'Do you have an appointment?' });
-    welcome.value = k.welcomeMessage;
-    var save = el('button', { type: 'submit', className: 'btn btn-small', text: 'Save' });
-    var cancel = el('button', { type: 'button', className: 'btn btn-secondary btn-small', text: 'Cancel' });
-    var notice = el('div', { className: 'notice', style: 'grid-column: 1 / -1; margin: 0' });
-    var form = el('form', { novalidate: '' }, [
-      el('div', {}, [el('label', { for: label.id, text: 'Kiosk name' }), label]),
-      el('div', {}, [el('label', { for: welcome.id, text: 'Welcome message (leave blank for the default)' }), welcome]),
-      el('div', { className: 'row-actions' }, [save, cancel]),
-      notice
-    ]);
-    var row = el('li', {}, [form]);
-
-    cancel.addEventListener('click', function () { row.replaceWith(kioskRow(k)); });
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      save.disabled = true;
-      api('PUT', '/api/kiosks/' + encodeURIComponent(k.token), {
-        label: label.value, welcomeMessage: welcome.value
-      }).then(function (r) {
-        save.disabled = false;
-        if (!r.data.ok) {
-          Lobby.showNotice(notice, r.data.error);
-          return;
-        }
-        load();
-      });
-    });
-    setTimeout(function () { welcome.focus(); }, 0);
-    return row;
   }
 
   function renderFacility() {

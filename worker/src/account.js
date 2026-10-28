@@ -3,10 +3,10 @@
 
 import { json, fail, readJson, str, isEmail, randomId, TIMEZONES } from './util.js';
 import { trySendEmail } from './email.js';
+import { kioskFlow, validateFlow } from './flow.js';
 
 const MAX_CLINICIANS = 50;
 const MAX_KIOSKS = 10;
-const MAX_WELCOME = 120;
 
 async function ownedFacility(env, user) {
   return env.DB.prepare('SELECT * FROM facilities WHERE owner_user_id = ?').bind(user.id).first();
@@ -22,7 +22,7 @@ export async function getAccount(env, user, origin) {
 
   const [clinicians, kiosks, checkins] = await env.DB.batch([
     env.DB.prepare('SELECT id, name, email, sort_order FROM clinicians WHERE facility_id = ? AND active = 1 ORDER BY sort_order, name').bind(f.id),
-    env.DB.prepare('SELECT token, label, welcome_message, created_at FROM kiosks WHERE facility_id = ? ORDER BY created_at').bind(f.id),
+    env.DB.prepare('SELECT token, label, welcome_message, flow, created_at FROM kiosks WHERE facility_id = ? ORDER BY created_at').bind(f.id),
     env.DB.prepare(
       'SELECT c.name, k.status, k.created_at FROM checkins k JOIN clinicians c ON c.id = k.clinician_id ' +
       'WHERE k.facility_id = ? ORDER BY k.id DESC LIMIT 25'
@@ -44,7 +44,7 @@ export async function getAccount(env, user, origin) {
     }),
     kiosks: kiosks.results.map(function (k) {
       return {
-        token: k.token, label: k.label || 'Kiosk', welcomeMessage: k.welcome_message || '',
+        token: k.token, label: k.label || 'Kiosk', flow: kioskFlow(k), customized: !!k.flow,
         link: kioskLink(origin, k.token), createdAt: k.created_at
       };
     }),
@@ -132,11 +132,19 @@ export async function updateKiosk(request, env, user, token) {
   const f = await ownedFacility(env, user);
   if (!f) return fail('No business on this account.', 404);
   const body = await readJson(request);
-  // Blank falls back to the default heading on the kiosk.
-  const welcomeMessage = str(body.welcomeMessage, MAX_WELCOME);
 
-  const result = await env.DB.prepare('UPDATE kiosks SET label = ?, welcome_message = ? WHERE token = ? AND facility_id = ?')
-    .bind(str(body.label, 40) || 'Lobby iPad', welcomeMessage || null, token, f.id).run();
+  // flow: null goes back to the default screens.
+  let flow = null;
+  if (body.flow !== null) {
+    const { results } = await env.DB.prepare('SELECT id FROM clinicians WHERE facility_id = ? AND active = 1').bind(f.id).all();
+    const checked = validateFlow(body.flow, new Set(results.map(function (c) { return c.id; })));
+    if (checked.error) return fail(checked.error);
+    flow = JSON.stringify(checked.flow);
+  }
+
+  // A saved flow carries its own welcome message, so the old column is cleared.
+  const result = await env.DB.prepare('UPDATE kiosks SET label = ?, flow = ?, welcome_message = NULL WHERE token = ? AND facility_id = ?')
+    .bind(str(body.label, 40) || 'Lobby iPad', flow, token, f.id).run();
   if (!result.meta.changes) return fail('Not found.', 404);
   return json({ ok: true });
 }

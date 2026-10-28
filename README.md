@@ -8,8 +8,8 @@ Everything runs on one Cloudflare Worker (`worker/`), served at `lobbyapp.app` a
 
 | Piece | Where | What it does |
 |---|---|---|
-| Site | `worker/public/` | Homepage, sign-up/sign-in, password reset, contact form, dashboard |
-| Kiosk | `worker/public/kiosk/` | The iPad screens, served for kiosk links `lobbyapp.app/?kiosk=<token>` |
+| Site | `worker/public/` | Homepage, sign-up/sign-in, password reset, contact form, dashboard, screen editor (`/screens`) |
+| Kiosk | `worker/public/kiosk/` | The iPad app, served for kiosk links `lobbyapp.app/?kiosk=<token>`. It shows that kiosk's screens and buttons (its flow, see `worker/src/flow.js`) |
 | API | `worker/src/` | Accounts (`auth.js`), dashboard (`account.js`), kiosk check-ins (`kiosk.js`) |
 | Database | Cloudflare D1 `lobbyapp` (`worker/migrations/`) | Users, sessions, businesses, people, kiosks, check-in log, contact messages |
 | Email | Cloudflare Email Service, from `kiosk@lobbyapp.app` | Check-in notices, admin alerts, password resets, contact messages |

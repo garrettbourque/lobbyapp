@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit screens – LobbyApp</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="logo" href="/"><span class="logo-mark">L</span>LobbyApp</a>
+      <nav class="nav">
+        <a href="/dashboard">&larr; Dashboard</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="dash" id="editor" hidden>
+    <div class="wrap">
+      <div class="dash-head">
+        <h1 id="title">Edit screens</h1>
+        <a class="btn btn-secondary btn-small" id="open-kiosk" target="_blank" rel="noopener">Open this kiosk</a>
+      </div>
+      <div class="notice" id="page-notice"></div>
+
+      <section class="card panel">
+        <h2>Kiosk</h2>
+        <div class="form-row">
+          <div class="field">
+            <label for="kiosk-label">Kiosk name</label>
+            <input id="kiosk-label" type="text" maxlength="40" placeholder="Lobby iPad">
+          </div>
+          <div class="field" id="copy-field">
+            <label for="copy-from">Start from another kiosk's screens</label>
+            <div class="link-box" style="margin-top: 0">
+              <select id="copy-from"></select>
+              <button class="btn btn-secondary btn-small" type="button" id="copy">Copy</button>
+            </div>
+          </div>
+        </div>
+        <p class="muted" style="margin: 0">The kiosk starts on the first screen. A screen with a countdown goes back to the start when it ends; any other screen goes back after a minute without a tap.
+          <button class="btn btn-secondary btn-small" type="button" id="reset">Reset to the default screens</button></p>
+      </section>
+
+      <div id="screens"></div>
+      <button class="btn btn-secondary" type="button" id="add-screen">Add a screen</button>
+    </div>
+
+    <div class="save-bar">
+      <div class="wrap">
+        <div class="notice" id="save-notice"></div>
+        <button class="btn" type="button" id="save">Save</button>
+        <span class="muted" id="dirty"></span>
+      </div>
+    </div>
+  </main>
+
+  <script src="/assets/site.js"></script>
+  <script src="/assets/screens.js"></script>
+</body>
+</html>

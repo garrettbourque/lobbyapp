@@ -1,148 +1,165 @@
 (function () {
   'use strict';
 
-  const screens = {
-    home: document.getElementById('screen-home'),
-    counselor: document.getElementById('screen-counselor'),
-    arrival: document.getElementById('screen-arrival'),
-    noAppointment: document.getElementById('screen-no-appointment')
-  };
-
-  const arrivalCountdownEl = document.getElementById('arrival-countdown');
-  const noAppointmentCountdownEl = document.getElementById('no-appointment-countdown');
-  const officePhoneLink = document.getElementById('office-phone-link');
-  const counselorButtonsContainer = document.getElementById('counselor-buttons');
-  const welcomeEl = document.getElementById('welcome-message');
-  const defaultWelcome = welcomeEl.textContent;
+  const messageEl = document.getElementById('message');
+  const phoneEl = document.getElementById('phone');
+  const phoneLink = document.getElementById('phone-link');
+  const buttonsEl = document.getElementById('buttons');
+  const countdownEl = document.getElementById('countdown');
 
   // Secret from the kiosk link (lobbyapp.app/?kiosk=...) naming this iPad's facility.
   const kioskToken = new URLSearchParams(window.location.search).get('kiosk');
 
-  let returnHomeTimer = null;
+  // { facility, flow, clinicians } from the server; see worker/src/flow.js for the flow format.
+  let data = null;
+  let current = null;
+  let timer = null;
 
-  function showScreen(screenId) {
-    Object.values(screens).forEach(function (el) {
-      el.classList.remove('active');
-    });
-    const target = screens[screenId];
-    if (target) target.classList.add('active');
+  function screens() {
+    return data.flow.screens;
   }
 
-  function clearReturnHomeTimer() {
-    if (returnHomeTimer) {
-      clearInterval(returnHomeTimer);
-      returnHomeTimer = null;
+  function isHome() {
+    return !current || current.id === screens()[0].id;
+  }
+
+  function clearTimer() {
+    if (timer) {
+      clearInterval(timer);
+      clearTimeout(timer);
+      timer = null;
     }
   }
 
-  function startReturnHomeCountdown(screenId, countdownEl) {
-    clearReturnHomeTimer();
-    let remaining = CONFIG.returnHomeSeconds;
-    if (countdownEl) {
+  // Screens with returnAfter count down back to the start. Any other screen past the
+  // first goes back after a minute without a tap, so the next visitor starts fresh.
+  function armTimer(screen) {
+    clearTimer();
+    countdownEl.textContent = '';
+    if (screen.returnAfter > 0) {
+      let remaining = screen.returnAfter;
       countdownEl.textContent = 'Returning to home in ' + remaining + ' seconds.';
-    }
-    returnHomeTimer = setInterval(function () {
-      remaining -= 1;
-      if (countdownEl) {
+      timer = setInterval(function () {
+        remaining -= 1;
         countdownEl.textContent = 'Returning to home in ' + remaining + ' seconds.';
-      }
-      if (remaining <= 0) {
-        clearReturnHomeTimer();
-        showScreen('home');
-      }
-    }, 1000);
+        if (remaining <= 0) goHome();
+      }, 1000);
+    } else if (!isHome()) {
+      timer = setTimeout(goHome, CONFIG.idleReturnSeconds * 1000);
+    }
   }
 
-  function postCheckin(counselor) {
+  function goHome() {
+    show(screens()[0].id);
+  }
+
+  function addButton(label, className, onTap) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = className;
+    btn.textContent = label;
+    btn.addEventListener('click', onTap);
+    buttonsEl.appendChild(btn);
+  }
+
+  function notSetUp() {
+    clearTimer();
+    messageEl.textContent = 'This kiosk is not set up yet.';
+    phoneEl.hidden = true;
+    buttonsEl.innerHTML = '';
+    countdownEl.textContent = '';
+  }
+
+  function show(id) {
+    const screen = screens().find(function (s) { return s.id === id; }) || screens()[0];
+    current = screen;
+
+    messageEl.textContent = screen.message;
+    messageEl.hidden = !screen.message;
+    const phone = data.facility.officePhone;
+    phoneEl.hidden = !(screen.showPhone && phone);
+    phoneLink.textContent = phone;
+    phoneLink.href = 'tel:' + String(phone).replace(/[^0-9+]/g, '');
+
+    buttonsEl.innerHTML = '';
+    if (screen.kind === 'people') {
+      data.clinicians.forEach(function (c) {
+        addButton(c.name, 'btn btn-primary', function () { notify(c.id, screen.then); });
+      });
+      if (!data.clinicians.length) {
+        const msg = document.createElement('p');
+        msg.className = 'instructions';
+        msg.textContent = 'No one is listed yet.';
+        buttonsEl.appendChild(msg);
+      }
+    } else {
+      const people = new Set(data.clinicians.map(function (c) { return c.id; }));
+      screen.buttons.forEach(function (b) {
+        if (b.action === 'home') {
+          addButton(b.label, 'btn btn-secondary', goHome);
+        } else if (b.action === 'screen') {
+          addButton(b.label, 'btn btn-primary', function () { show(b.target); });
+        } else if (b.action === 'notify' && people.has(b.person)) {
+          // A button for someone since removed from the business is hidden.
+          addButton(b.label, 'btn btn-primary', function () { notify(b.person, b.target); });
+        }
+      });
+    }
+    armTimer(screen);
+  }
+
+  function notify(personId, then) {
+    show(then);
     fetch(CONFIG.apiBaseUrl + '/api/kiosk/' + encodeURIComponent(kioskToken) + '/checkin', {
       method: 'POST',
       mode: 'cors',
       cache: 'no-store',
       keepalive: true,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clinicianId: counselor.id })
+      body: JSON.stringify({ clinicianId: personId })
     }).catch(function () {});
   }
 
-  function buildCounselorButtons(counselors) {
-    counselorButtonsContainer.innerHTML = '';
-    if (!counselors.length) {
-      var msg = document.createElement('p');
-      msg.className = 'instructions';
-      msg.textContent = 'This kiosk is not set up yet.';
-      counselorButtonsContainer.appendChild(msg);
-      return;
-    }
-    counselors.forEach(function (c) {
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn btn-primary';
-      btn.textContent = c.name;
-      btn.addEventListener('click', function () {
-        showScreen('arrival');
-        startReturnHomeCountdown('arrival', arrivalCountdownEl);
-        postCheckin(c);
-      });
-      counselorButtonsContainer.appendChild(btn);
-    });
+  // A visitor partway through keeps their screen; new screens show from the next start.
+  function applyKioskData(next) {
+    data = next;
+    if (isHome()) goHome();
   }
 
-  function setOfficePhone(phone) {
-    officePhoneLink.textContent = phone;
-    officePhoneLink.href = 'tel:' + String(phone).replace(/[^0-9+]/g, '');
-  }
-
-  function applyKioskData(data) {
-    welcomeEl.textContent = (data.kiosk && data.kiosk.welcomeMessage) || defaultWelcome;
-    setOfficePhone(data.facility.officePhone);
-    buildCounselorButtons(data.clinicians);
-  }
-
-  // The facility's clinician list comes from the server and is refreshed
+  // The kiosk's screens and people come from the server and are refreshed
   // periodically, so edits show up without touching the iPad. The last good
   // copy is cached so a network blip at startup doesn't blank the kiosk.
   function loadKiosk() {
-    var cacheKey = 'kiosk:' + kioskToken;
+    const cacheKey = 'kiosk:' + kioskToken;
     fetch(CONFIG.apiBaseUrl + '/api/kiosk/' + encodeURIComponent(kioskToken), { mode: 'cors', cache: 'no-store' })
       .then(function (res) { return res.json(); })
-      .then(function (data) {
-        if (!data.ok) {
-          buildCounselorButtons([]);
+      .then(function (next) {
+        if (!next.ok) {
+          data = null;
+          notSetUp();
           return;
         }
-        applyKioskData(data);
-        try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch (e) {}
+        applyKioskData(next);
+        try { localStorage.setItem(cacheKey, JSON.stringify(next)); } catch (e) {}
       })
       .catch(function () {
-        var cached = null;
+        if (data) return;
+        let cached = null;
         try { cached = JSON.parse(localStorage.getItem(cacheKey)); } catch (e) {}
-        if (cached) applyKioskData(cached);
+        if (cached && cached.flow) applyKioskData(cached);
       });
   }
 
   function init() {
-    setOfficePhone('');
-    if (kioskToken) {
-      loadKiosk();
-      setInterval(loadKiosk, CONFIG.kioskRefreshMinutes * 60 * 1000);
-    } else {
-      buildCounselorButtons([]);
+    if (!kioskToken) {
+      notSetUp();
+      return;
     }
-
-    document.body.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-action]');
-      if (!btn) return;
-      var action = btn.dataset.action;
-      if (action === 'yes') {
-        showScreen('counselor');
-      } else if (action === 'no') {
-        clearReturnHomeTimer();
-        showScreen('noAppointment');
-        startReturnHomeCountdown('noAppointment', noAppointmentCountdownEl);
-      } else if (action === 'home') {
-        clearReturnHomeTimer();
-        showScreen('home');
-      }
+    loadKiosk();
+    setInterval(loadKiosk, CONFIG.kioskRefreshMinutes * 60 * 1000);
+    // Any tap restarts the idle clock on screens without a countdown.
+    document.addEventListener('pointerdown', function () {
+      if (current && !current.returnAfter && !isHome()) armTimer(current);
     });
   }
 

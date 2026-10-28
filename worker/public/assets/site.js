@@ -21,6 +21,18 @@ window.Lobby = (function () {
       });
   }
 
+  // Builds an element: el('a', { href: '/', text: 'Home', className: 'btn' }, [children]).
+  function el(tag, attrs, children) {
+    var node = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === 'text') node.textContent = attrs[k];
+      else if (k === 'className') node.className = attrs[k];
+      else node.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+    return node;
+  }
+
   function formValues(form) {
     var values = {};
     new FormData(form).forEach(function (value, key) { values[key] = value; });
@@ -77,5 +89,5 @@ window.Lobby = (function () {
     if (year) year.textContent = new Date().getFullYear();
   });
 
-  return { api: api, bindForm: bindForm, showNotice: showNotice, formValues: formValues };
+  return { api: api, el: el, bindForm: bindForm, showNotice: showNotice, formValues: formValues };
 })();

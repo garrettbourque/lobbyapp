@@ -5,3 +5,6 @@
 
 /dashboard
   Cache-Control: no-store
+
+/screens
+  Cache-Control: no-store
