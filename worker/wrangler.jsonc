@@ -5,24 +5,41 @@
   "compatibility_date": "2026-10-15",
   "observability": { "enabled": true },
 
-  "vars": {
-    // Only the kiosk site may call this Worker (comma-separated).
-    "ALLOWED_ORIGINS": "https://lobbyapp.app,https://www.lobbyapp.app",
-    // Sender address on the Cloudflare domain.
-    "FROM_ADDRESS": "kiosk@lobbyapp.app",
-    "FROM_NAME": "Lobby Kiosk"
+  // The Worker serves lobbyapp.app directly (Cloudflare manages these DNS records).
+  "routes": [
+    { "pattern": "lobbyapp.app", "custom_domain": true },
+    { "pattern": "www.lobbyapp.app", "custom_domain": true }
+  ],
+
+  // The whole site (homepage, sign-in, dashboard, kiosk). The Worker runs first only
+  // for the API and for / (where kiosk links land); everything else is served directly.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/", "/api/*"]
   },
 
-  // No restriction attribute: can only send to destination addresses verified
-  // in Email Routing, so clinicians and facility admins each confirm their address once.
+  "vars": {
+    // Extra origins allowed to call the kiosk API cross-origin (comma-separated).
+    "ALLOWED_ORIGINS": "https://lobbyapp.app,https://www.lobbyapp.app",
+    // Sender address on the Cloudflare domain.
+    "FROM_ADDRESS": "kiosk@lobbyapp.app"
+  },
+  // Secret: CONTACT_EMAIL, where contact-form messages are sent.
+
+  // No restriction attribute: on the free plan this can only send to destination
+  // addresses verified in Email Routing; Workers Paid lifts that.
   "send_email": [{ "name": "EMAIL" }],
 
-  // Facilities, kiosks, clinicians and the check-in log (schema.sql).
+  // Accounts, facilities, kiosks, clinicians and the check-in log (migrations/).
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "lobbyapp",
-      "database_id": "cff821b4-79bb-4cfc-b43c-ba1b174ee1f3"
+      "database_id": "cff821b4-79bb-4cfc-b43c-ba1b174ee1f3",
+      "migrations_dir": "migrations"
     }
   ],
 
@@ -32,6 +49,12 @@
       "namespace_id": "1001",
       // At most 3 emails per clinician per minute.
       "simple": { "limit": 3, "period": 60 }
+    },
+    {
+      "name": "AUTH_LIMITER",
+      "namespace_id": "1002",
+      // Sign-in, sign-up, reset and contact attempts per IP address per minute.
+      "simple": { "limit": 10, "period": 60 }
     }
   ]
 }

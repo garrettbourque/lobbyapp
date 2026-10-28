@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LobbyApp – iPad check-in that emails the right person</title>
+  <meta name="description" content="Turn an iPad into a lobby check-in kiosk. Clients tap who they're here to see, and that person gets an email right away.">
+  <link rel="stylesheet" href="/assets/site.css">
+  <script src="/assets/site.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="logo" href="/"><span class="logo-mark">L</span>LobbyApp</a>
+      <nav class="nav" data-auth-nav>
+        <a class="hide-sm" href="/contact">Contact</a>
+        <a href="/signin" data-signed-out>Sign in</a>
+        <a class="btn" href="/signup" data-signed-out>Get started</a>
+        <a class="btn" href="/dashboard" data-signed-in hidden>Dashboard</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <span class="badge">Free while in beta</span>
+        <h1>Your lobby, checked in.<br>No front desk needed.</h1>
+        <p class="lead">LobbyApp turns an iPad into a check-in kiosk. Clients tap the person they're here to see, and that person gets an email the moment they arrive.</p>
+        <div class="actions">
+          <a class="btn" href="/signup">Set up your lobby</a>
+          <a class="btn btn-secondary" href="#how">See how it works</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="how">
+      <div class="wrap">
+        <h2 class="section-title">How it works</h2>
+        <div class="grid">
+          <div class="card">
+            <div class="step-num">1</div>
+            <h3>Add your people</h3>
+            <p class="muted">Create an account, then list everyone who sees clients, with the email address their check-in notices should go to.</p>
+          </div>
+          <div class="card">
+            <div class="step-num">2</div>
+            <h3>Set up the iPad</h3>
+            <p class="muted">Open your kiosk link in Safari, add it to the Home Screen and lock it with Guided Access. No app to install.</p>
+          </div>
+          <div class="card">
+            <div class="step-num">3</div>
+            <h3>Clients check themselves in</h3>
+            <p class="muted">They tap who they're here to see. That person gets an email right away, and the client is asked to take a seat.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2 class="section-title">Built for small offices</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>No client information collected</h3>
+            <p class="muted">The kiosk never asks for a client's name or details. The email just says a client has arrived and when.</p>
+          </div>
+          <div class="card">
+            <h3>Never miss a check-in</h3>
+            <p class="muted">If someone can't be emailed, LobbyApp alerts your office contact instead, so no one is left waiting.</p>
+          </div>
+          <div class="card">
+            <h3>Change it any time</h3>
+            <p class="muted">Add or remove people from your dashboard. The iPad picks up changes within minutes, without touching it.</p>
+          </div>
+          <div class="card">
+            <h3>Walk-ins handled</h3>
+            <p class="muted">Clients without an appointment see your office phone number so they can call to schedule.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="wrap">
+        <h2>Ready to try it?</h2>
+        <p class="muted">Setting up takes about five minutes. All you need is an iPad.</p>
+        <a class="btn" href="/signup">Create your free account</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>&copy; <span data-year></span> LobbyApp</span>
+      <span><a href="/contact">Contact us</a></span>
+    </div>
+  </footer>
+</body>
+</html>

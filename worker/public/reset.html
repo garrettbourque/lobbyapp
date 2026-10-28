@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Choose a new password – LobbyApp</title>
+  <meta name="referrer" content="no-referrer">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="logo" href="/"><span class="logo-mark">L</span>LobbyApp</a>
+    </div>
+  </header>
+
+  <main class="auth">
+    <div class="wrap narrow">
+      <h1>Choose a new password</h1>
+      <form id="reset" class="card" novalidate>
+        <div class="notice"></div>
+        <input type="hidden" name="token" id="token">
+        <div class="field">
+          <label for="password">New password</label>
+          <input id="password" name="password" type="password" autocomplete="new-password" required minlength="10">
+          <div class="hint">At least 10 characters. This signs you out everywhere else.</div>
+        </div>
+        <div class="field">
+          <label for="confirm">Confirm new password</label>
+          <input id="confirm" name="confirm" type="password" autocomplete="new-password" required>
+        </div>
+        <button class="btn btn-block" type="submit">Save password</button>
+      </form>
+    </div>
+  </main>
+
+  <script src="/assets/site.js"></script>
+  <script>
+    document.getElementById('token').value = new URLSearchParams(window.location.search).get('token') || '';
+    Lobby.bindForm(document.getElementById('reset'), 'POST', '/api/reset', function () {
+      window.location.href = '/dashboard';
+    }, function (body) {
+      if (!body.token) return 'This reset link is incomplete. Open the link from your email again.';
+      if (body.password !== body.confirm) return 'The passwords don’t match.';
+      delete body.confirm;
+    });
+  </script>
+</body>
+</html>

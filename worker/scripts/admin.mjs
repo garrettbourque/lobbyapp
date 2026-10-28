@@ -3,6 +3,7 @@
 //   node scripts/admin.mjs list [facilityId]
 //   node scripts/admin.mjs facility add "Name" [--admin email] [--phone "(555) 555-5555"] [--tz America/Chicago]
 //   node scripts/admin.mjs facility set <facilityId> [--name ..] [--admin ..] [--phone ..] [--tz ..]
+//   node scripts/admin.mjs facility owner <facilityId> <account email>   (hand a facility to a signed-up user)
 //   node scripts/admin.mjs clinician add <facilityId> "Name" [--email address] [--order n]
 //   node scripts/admin.mjs clinician set <clinicianId> [--name ..] [--email address|none] [--order n]
 //   node scripts/admin.mjs clinician remove <clinicianId>
@@ -114,6 +115,27 @@ if (group === 'list') {
     name: opt('--name'), admin_email: opt('--admin'), office_phone: opt('--phone'), timezone: opt('--tz')
   }) + ' WHERE id = ' + sql(fid));
   console.log('Updated facility ' + fid);
+} else if (group === 'facility' && action === 'owner') {
+  const [fid, email] = [rest.shift(), rest.shift()];
+  if (!fid || !email) usage();
+  const users = run('SELECT id FROM users WHERE email = ' + sql(email.toLowerCase()));
+  if (!users.length) {
+    console.error('No account with email ' + email + '. Have them sign up first.');
+    process.exit(1);
+  }
+  // A user owns one facility, so drop any empty one created at sign-up.
+  const others = run('SELECT id FROM facilities WHERE owner_user_id = ' + sql(users[0].id) + ' AND id != ' + sql(fid));
+  for (const f of others) {
+    const used = run('SELECT (SELECT COUNT(*) FROM clinicians WHERE facility_id = ' + sql(f.id) + ') + ' +
+      '(SELECT COUNT(*) FROM kiosks WHERE facility_id = ' + sql(f.id) + ') AS n')[0].n;
+    if (used) {
+      console.error('That account already has facility ' + f.id + ' with clinicians or kiosks. Remove those first.');
+      process.exit(1);
+    }
+    run('DELETE FROM facilities WHERE id = ' + sql(f.id));
+  }
+  run('UPDATE facilities SET owner_user_id = ' + sql(users[0].id) + ' WHERE id = ' + sql(fid));
+  console.log('Facility ' + fid + ' now belongs to ' + email + '.');
 } else if (group === 'clinician' && action === 'add') {
   const [fid, name] = [rest.shift(), rest.shift()];
   if (!fid || !name) usage();

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard – LobbyApp</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="logo" href="/"><span class="logo-mark">L</span>LobbyApp</a>
+      <nav class="nav">
+        <span class="muted" id="who"></span>
+        <a class="hide-sm" href="/contact">Help</a>
+        <button class="btn btn-secondary btn-small" type="button" id="signout">Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="dash" id="dash" hidden>
+    <div class="wrap">
+      <div class="dash-head">
+        <h1 id="business-title"></h1>
+      </div>
+      <div class="notice" id="page-notice"></div>
+
+      <section class="card panel">
+        <h2>People clients can check in for</h2>
+        <p class="muted">Each person gets a button on the kiosk. When a client taps it, that person gets an email.</p>
+        <ul class="list" id="clinicians"></ul>
+        <form id="add-clinician" class="inline-add" novalidate>
+          <div>
+            <label for="new-name">Name on the button</label>
+            <input id="new-name" name="name" type="text" required maxlength="60" placeholder="e.g. Dr. Rivera">
+          </div>
+          <div>
+            <label for="new-email">Email for check-in notices</label>
+            <input id="new-email" name="email" type="email" placeholder="name@yourbusiness.com">
+          </div>
+          <button class="btn" type="submit">Add</button>
+          <div class="notice" style="grid-column: 1 / -1; margin: 0"></div>
+        </form>
+        <p class="hint">During the beta, each new email address needs a one-time confirmation before it receives notices. <a href="/contact">Contact us</a> after adding someone new.</p>
+      </section>
+
+      <section class="card panel">
+        <h2>Kiosks</h2>
+        <p class="muted">Open a kiosk link on your iPad in Safari, tap <strong>Share &rarr; Add to Home Screen</strong>, then lock it with <strong>Guided Access</strong> (Settings &rarr; Accessibility). Keep the link private: anyone with it can check clients in.</p>
+        <ul class="list" id="kiosks"></ul>
+        <form id="add-kiosk" class="inline-add" novalidate>
+          <div style="grid-column: span 2">
+            <label for="kiosk-label">Kiosk name</label>
+            <input id="kiosk-label" name="label" type="text" maxlength="40" placeholder="Lobby iPad">
+          </div>
+          <button class="btn" type="submit">Create kiosk link</button>
+          <div class="notice" style="grid-column: 1 / -1; margin: 0"></div>
+        </form>
+      </section>
+
+      <section class="card panel">
+        <h2>Business details</h2>
+        <p class="muted">The phone number is shown to clients without an appointment. Alerts go to the alert email when someone can't be notified.</p>
+        <form id="facility" novalidate>
+          <div class="notice"></div>
+          <div class="form-row">
+            <div class="field">
+              <label for="f-name">Business name</label>
+              <input id="f-name" name="name" type="text" required maxlength="100">
+            </div>
+            <div class="field">
+              <label for="f-phone">Office phone</label>
+              <input id="f-phone" name="officePhone" type="tel" maxlength="30" placeholder="(555) 555-5555">
+            </div>
+            <div class="field">
+              <label for="f-admin">Alert email</label>
+              <input id="f-admin" name="adminEmail" type="email">
+            </div>
+            <div class="field">
+              <label for="f-tz">Time zone</label>
+              <select id="f-tz" name="timezone"></select>
+            </div>
+          </div>
+          <button class="btn" type="submit">Save details</button>
+        </form>
+      </section>
+
+      <section class="card panel">
+        <h2>Recent check-ins</h2>
+        <p class="muted">The last 25 taps on your kiosks. No client information is recorded.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>When</th><th>For</th><th>Result</th></tr></thead>
+            <tbody id="checkins"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/assets/site.js"></script>
+  <script src="/assets/dashboard.js"></script>
+</body>
+</html>

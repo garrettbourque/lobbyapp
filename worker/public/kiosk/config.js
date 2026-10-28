@@ -1,11 +1,11 @@
 // Lobby kiosk configuration
 //
 // Each iPad opens its kiosk link (lobbyapp.app/?kiosk=...), which loads that facility's
-// name, phone and clinicians from the Worker at apiBaseUrl. Manage facilities, clinicians
-// and kiosks with worker/scripts/admin.mjs.
+// name, phone and clinicians from the API. Owners manage those from their dashboard.
 
 const CONFIG = {
-  apiBaseUrl: 'https://lobbyapp.bourque-garrett.workers.dev',
+  // The API is on the same site, so no host is needed.
+  apiBaseUrl: '',
   // How often a kiosk re-fetches its clinician list.
   kioskRefreshMinutes: 5,
 

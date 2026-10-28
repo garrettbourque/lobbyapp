@@ -1,5 +1,5 @@
 -- Lobby kiosk database (Cloudflare D1).
--- Apply with: npx wrangler d1 execute lobbyapp --remote --file schema.sql
+-- Apply pending migrations with: npx wrangler d1 migrations apply lobbyapp --remote
 
 -- A customer location. admin_email gets alerts when a clinician can't be emailed.
 CREATE TABLE IF NOT EXISTS facilities (

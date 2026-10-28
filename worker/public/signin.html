@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in – LobbyApp</title>
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="logo" href="/"><span class="logo-mark">L</span>LobbyApp</a>
+      <nav class="nav"><a class="btn" href="/signup">Get started</a></nav>
+    </div>
+  </header>
+
+  <main class="auth">
+    <div class="wrap narrow">
+      <h1>Sign in</h1>
+      <form id="signin" class="card" novalidate>
+        <div class="notice"></div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-block" type="submit">Sign in</button>
+      </form>
+      <p class="muted" style="margin-top:16px"><a href="/forgot">Forgot your password?</a></p>
+      <p class="muted">New to LobbyApp? <a href="/signup">Create an account</a></p>
+    </div>
+  </main>
+
+  <script src="/assets/site.js"></script>
+  <script>
+    Lobby.bindForm(document.getElementById('signin'), 'POST', '/api/signin', function () {
+      window.location.href = '/dashboard';
+    });
+  </script>
+</body>
+</html>
