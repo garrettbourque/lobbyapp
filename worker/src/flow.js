@@ -22,7 +22,9 @@
 //     fields: [ { label, name, required } ]   label is the prompt the visitor sees; name is
 //                                             how messages refer to the answer: {First name}
 //                                             (no field may use a name from TAGS below)
-//     submit: { label, target }               enabled once every required field is filled in
+//     submit: { label, action, target, ... }  a button like those above (any action but
+//                                             'people'), enabled once every required field
+//                                             is filled in
 // } ] }
 // The first screen is where the kiosk starts. The kiosk adds a Back button to the others.
 // Answers go in the notice email when someone is notified, and are never stored.
@@ -85,6 +87,8 @@ function upgrade(flow, officePhone) {
       s.buttons = s.buttons.filter(function (b) { return !(b && b.action === 'home' && b.label === 'Back'); });
     }
     if (s.type !== 'form') s.type = 'buttons';
+    // Submit buttons saved before 2026-10-29 could only go to a screen.
+    if (s.submit && !s.submit.action) s.submit.action = 'screen';
     delete s.kind;
     delete s.then;
     delete s.showPhone;
@@ -127,7 +131,7 @@ export function validateFlow(input, personIds, templateIds) {
     }
     const screen = { id: s.id, name: name, type: s.type, message: str(s.message, 200), returnAfter: returnAfter };
     const problem = s.type === 'form'
-      ? checkForm(s, screen, ids, fieldNames, where)
+      ? checkForm(s, screen, ids, personIds, templateIds, fieldNames, where)
       : checkButtons(s, screen, ids, personIds, templateIds, where);
     if (problem) return { error: problem };
     out.push(screen);
@@ -154,33 +158,42 @@ function checkButtons(s, screen, ids, personIds, templateIds, where) {
 
     const label = str(b && b.label, 60);
     if (!label) return 'Every button needs text' + where;
-    const button = { label: label, action: action };
-    if (action === 'screen' || action === 'notify' || action === 'emails') {
-      if (!ids.has(b.target)) return 'Choose where the "' + label + '" button goes' + where;
-      button.target = b.target;
-    } else if (action !== 'home') {
-      return 'Choose what the "' + label + '" button does' + where;
-    }
-    if (action === 'notify') {
-      if (!personIds.has(b.person)) return 'Choose who the "' + label + '" button notifies' + where;
-      button.person = b.person;
-      if (!readTemplate(b, button, templateIds)) return 'Choose the email the "' + label + '" button sends' + where;
-    }
-    if (action === 'emails') {
-      const persons = Array.isArray(b.persons) ? b.persons.filter(function (p, k) {
-        return typeof p === 'string' && b.persons.indexOf(p) === k;
-      }) : [];
-      if (!persons.length) return 'Add at least one recipient to the "' + label + '" button' + where;
-      if (persons.length > MAX_RECIPIENTS) return 'A button can email up to ' + MAX_RECIPIENTS + ' people' + where;
-      if (persons.some(function (p) { return !personIds.has(p); })) {
-        return 'Someone the "' + label + '" button emails is no longer on your People list. Remove them from the button' + where;
-      }
-      button.persons = persons;
-      if (!readTemplate(b, button, templateIds)) return 'Choose the email the "' + label + '" button sends' + where;
-    }
-    screen.buttons.push(button);
+    const checked = checkButton(b, label, ids, personIds, templateIds, where);
+    if (checked.error) return checked.error;
+    screen.buttons.push(checked.button);
   }
   return null;
+}
+
+// One button with its own text: everything but a People-list entry. Returns { button } or { error }.
+function checkButton(b, label, ids, personIds, templateIds, where) {
+  const action = b.action;
+  const button = { label: label, action: action };
+  const problem = function (text) { return { error: text + where }; };
+  if (action === 'screen' || action === 'notify' || action === 'emails') {
+    if (!ids.has(b.target)) return problem('Choose where the "' + label + '" button goes');
+    button.target = b.target;
+  } else if (action !== 'home') {
+    return problem('Choose what the "' + label + '" button does');
+  }
+  if (action === 'notify') {
+    if (!personIds.has(b.person)) return problem('Choose who the "' + label + '" button notifies');
+    button.person = b.person;
+    if (!readTemplate(b, button, templateIds)) return problem('Choose the email the "' + label + '" button sends');
+  }
+  if (action === 'emails') {
+    const persons = Array.isArray(b.persons) ? b.persons.filter(function (p, k) {
+      return typeof p === 'string' && b.persons.indexOf(p) === k;
+    }) : [];
+    if (!persons.length) return problem('Add at least one recipient to the "' + label + '" button');
+    if (persons.length > MAX_RECIPIENTS) return problem('A button can email up to ' + MAX_RECIPIENTS + ' people');
+    if (persons.some(function (p) { return !personIds.has(p); })) {
+      return problem('Someone the "' + label + '" button emails is no longer on your People list. Remove them from the button');
+    }
+    button.persons = persons;
+    if (!readTemplate(b, button, templateIds)) return problem('Choose the email the "' + label + '" button sends');
+  }
+  return { button: button };
 }
 
 // Copies a button's email template onto button. False if it names one that no longer exists.
@@ -192,7 +205,7 @@ function readTemplate(b, button, templateIds) {
   return true;
 }
 
-function checkForm(s, screen, ids, fieldNames, where) {
+function checkForm(s, screen, ids, personIds, templateIds, fieldNames, where) {
   const fields = Array.isArray(s.fields) ? s.fields : [];
   if (!fields.length) return 'Add at least one entry field' + where;
   if (fields.length > MAX_FIELDS) return 'A screen can have up to ' + MAX_FIELDS + ' entry fields' + where;
@@ -213,8 +226,9 @@ function checkForm(s, screen, ids, fieldNames, where) {
     screen.fields.push({ label: label, name: fieldName, required: !!(f && f.required) });
   }
 
-  const submit = s.submit || {};
-  if (!ids.has(submit.target)) return 'Choose where the submit button goes' + where;
-  screen.submit = { label: str(submit.label, 60) || 'Continue', target: submit.target };
+  const submit = s.submit && typeof s.submit === 'object' ? s.submit : {};
+  const checked = checkButton(submit, str(submit.label, 60) || 'Continue', ids, personIds, templateIds, where);
+  if (checked.error) return checked.error;
+  screen.submit = checked.button;
   return null;
 }

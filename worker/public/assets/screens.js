@@ -127,7 +127,8 @@
     var arrival = collectedOnArrival();
     warnings.forEach(function (w) {
       var t = account.templates.find(function (x) { return x.id === w.button.template; });
-      var known = arrival[w.screen.id] || [];
+      // A submit button also has its own screen's answers.
+      var known = (arrival[w.screen.id] || []).concat((w.screen.fields || []).map(function (f) { return tagKey(f.name); }));
       var missing = [];
       if (t) {
         (t.subject + ' ' + t.body).replace(/\{([^{}]+)\}/g, function (match, name) {
@@ -236,8 +237,8 @@
 
   // Column headings over a list of rows. An invisible copy of the row buttons keeps
   // the headings lined up with the columns below.
-  function listHead(columns, cols) {
-    var spacer = rowActions([], 0);
+  function listHead(columns, cols, single) {
+    var spacer = single ? el('div') : rowActions([], 0);
     spacer.setAttribute('aria-hidden', 'true');
     spacer.className += ' spacer';
     return el('li', { className: 'list-head grid-row ' + cols }, columns.map(function (c) {
@@ -297,12 +298,22 @@
         focusLast(s);
       }, s.fields.length >= MAX_FIELDS),
       el('p', { className: 'hint', text: 'Example: the prompt "Please enter your first name" with the tag "First name". To show an answer on a later screen, put its tag in braces in a message or button, like {First name}. {Person} shows the name of whoever the visitor notified. Email templates on the dashboard use the same tags. Answers go only in the email and are never stored.' }),
-      el('div', { className: 'form-row', style: 'margin-top: 14px' }, [
-        field('Submit button text', textInput(s.submit.label, 60, 'Continue', function (v) { s.submit.label = v; }),
-          'Visitors can tap it once every required field is filled in.'),
-        field('Submit goes to', select(screenChoices(), s.submit.target, 'Choose a screen…', function (v) { s.submit.target = v; }))
-      ])
+      el('label', { text: 'Submit button', style: 'margin-top: 14px' }),
+      submitList(s),
+      el('p', { className: 'hint', text: 'Visitors can tap it once every required field is filled in. It can do anything another button can, except list all your people.' })
     ];
+  }
+
+  // An information screen's submit button, laid out like a row of buttons.
+  function submitList(s) {
+    var wide = notifies(s.submit);
+    var cols = wide ? 'cols-buttons-wide' : 'cols-buttons';
+    return el('ul', { className: 'list' }, [
+      listHead(wide
+        ? ['Button label', 'Action', 'Recipient', 'Email', 'Next screen']
+        : ['Button label', 'Action', 'Next screen'], cols, true),
+      buttonRow(s, s.submit, 0, wide, cols, true)
+    ]);
   }
 
   function fieldRow(s, f, j) {
@@ -319,14 +330,17 @@
     ]);
   }
 
-  function buttonRow(s, b, j, wide, cols) {
-    var action = select([
+  // A button's row; isSubmit for an information screen's submit button, which can't
+  // list all people and isn't moved or removed.
+  function buttonRow(s, b, j, wide, cols, isSubmit) {
+    var actions = [
       { value: 'screen', text: 'Go to a screen' },
       { value: 'notify', text: 'E-mail' },
       { value: 'emails', text: 'Multiple E-mails' },
       { value: 'home', text: 'Back to start' },
       { value: 'people', text: 'List all people' }
-    ], b.action, 'Choose what it does…', function (v) {
+    ];
+    var action = select(isSubmit ? actions.slice(0, -1) : actions, b.action, 'Choose what it does…', function (v) {
       // Switching from E-mail keeps its recipient as the first of the list.
       if (v === 'emails' && !b.persons) b.persons = b.person ? [b.person] : [];
       b.action = v;
@@ -338,7 +352,7 @@
     if (b.action === 'people') {
       label = blank('Each person\'s name');
     } else {
-      label = textInput(b.label, 60, 'Button text', function (v) { b.label = v; });
+      label = textInput(b.label, 60, isSubmit ? 'Continue' : 'Button text', function (v) { b.label = v; });
       label.setAttribute('aria-label', 'Button label');
     }
     var cells = [label, action];
@@ -373,7 +387,7 @@
       next = select(screenChoices(), b.target, 'Choose a screen…', function (v) { b.target = v; });
       next.setAttribute('aria-label', 'Next screen');
     }
-    cells.push(next, rowActions(s.buttons, j), b.action === 'emails' ? recipientList(b) : null, warning);
+    cells.push(next, isSubmit ? el('div') : rowActions(s.buttons, j), b.action === 'emails' ? recipientList(b) : null, warning);
 
     return el('li', { className: 'button-row grid-row ' + cols }, cells);
   }
@@ -482,7 +496,7 @@
     addScreen({
       id: newId(), name: '', type: 'form', message: '', returnAfter: 0,
       fields: [{ label: '', name: '', required: true }],
-      submit: { label: 'Continue', target: '' }
+      submit: { label: 'Continue', action: 'screen', target: '' }
     });
   });
 

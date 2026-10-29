@@ -176,7 +176,7 @@
     const submit = addButton(fill(screen.submit.label), 'btn btn-primary', function () {
       if (!ready()) return;
       inputs.forEach(function (input) { input.blur(); });
-      go(screen.submit.target);
+      press(screen.submit);
     });
     function ready() {
       return screen.fields.every(function (f) { return !f.required || String(answers[f.name] || '').trim(); });
@@ -187,20 +187,30 @@
     update();
   }
 
-  function showButtons(screen) {
+  // People a notify or Multiple E-mails button emails who are still with the business.
+  function recipients(b) {
     const people = new Set(data.clinicians.map(function (c) { return c.id; }));
+    const ids = b.action === 'notify' ? [b.person] : b.action === 'emails' ? (b.persons || []) : [];
+    return ids.filter(function (id) { return people.has(id); });
+  }
+
+  // Does what a button (or an information screen's submit button) is set to do.
+  function press(b) {
+    if (b.action === 'home') return goHome();
+    const to = recipients(b);
+    if (to.length) notify(to, b.target, b.template);
+    else go(b.target);
+  }
+
+  function showButtons(screen) {
     screen.buttons.forEach(function (b) {
       if (b.action === 'home') {
         addButton(fill(b.label), 'btn btn-secondary', goHome);
       } else if (b.action === 'screen') {
-        addButton(fill(b.label), 'btn btn-primary', function () { go(b.target); });
-      } else if (b.action === 'notify' && people.has(b.person)) {
-        // A button for someone since removed from the business is hidden.
-        addButton(fill(b.label), 'btn btn-primary', function () { notify([b.person], b.target, b.template); });
-      } else if (b.action === 'emails') {
-        // Emails everyone on the button still with the business; hidden if that's no one.
-        const to = (b.persons || []).filter(function (id) { return people.has(id); });
-        if (to.length) addButton(fill(b.label), 'btn btn-primary', function () { notify(to, b.target, b.template); });
+        addButton(fill(b.label), 'btn btn-primary', function () { press(b); });
+      } else if (b.action === 'notify' || b.action === 'emails') {
+        // A button whose people have all left the business is hidden.
+        if (recipients(b).length) addButton(fill(b.label), 'btn btn-primary', function () { press(b); });
       } else if (b.action === 'people') {
         data.clinicians.forEach(function (c) {
           addButton(c.name, 'btn btn-primary', function () { notify([c.id], b.target, b.template); });
