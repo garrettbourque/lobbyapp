@@ -82,29 +82,27 @@
     phoneLink.href = 'tel:' + String(phone).replace(/[^0-9+]/g, '');
 
     buttonsEl.innerHTML = '';
-    if (screen.kind === 'people') {
-      data.clinicians.forEach(function (c) {
-        addButton(c.name, 'btn btn-primary', function () { notify(c.id, screen.then); });
-      });
-      if (!data.clinicians.length) {
-        const msg = document.createElement('p');
-        msg.className = 'instructions';
-        msg.textContent = 'No one is listed yet.';
-        buttonsEl.appendChild(msg);
-      }
-    } else {
-      const people = new Set(data.clinicians.map(function (c) { return c.id; }));
-      screen.buttons.forEach(function (b) {
-        if (b.action === 'home') {
-          addButton(b.label, 'btn btn-secondary', goHome);
-        } else if (b.action === 'screen') {
-          addButton(b.label, 'btn btn-primary', function () { show(b.target); });
-        } else if (b.action === 'notify' && people.has(b.person)) {
-          // A button for someone since removed from the business is hidden.
-          addButton(b.label, 'btn btn-primary', function () { notify(b.person, b.target); });
+    const people = new Set(data.clinicians.map(function (c) { return c.id; }));
+    screen.buttons.forEach(function (b) {
+      if (b.action === 'home') {
+        addButton(b.label, 'btn btn-secondary', goHome);
+      } else if (b.action === 'screen') {
+        addButton(b.label, 'btn btn-primary', function () { show(b.target); });
+      } else if (b.action === 'notify' && people.has(b.person)) {
+        // A button for someone since removed from the business is hidden.
+        addButton(b.label, 'btn btn-primary', function () { notify(b.person, b.target); });
+      } else if (b.action === 'people') {
+        data.clinicians.forEach(function (c) {
+          addButton(c.name, 'btn btn-primary', function () { notify(c.id, b.target); });
+        });
+        if (!data.clinicians.length) {
+          const msg = document.createElement('p');
+          msg.className = 'instructions';
+          msg.textContent = 'No one is listed yet.';
+          buttonsEl.appendChild(msg);
         }
-      });
-    }
+      }
+    });
     armTimer(screen);
   }
 

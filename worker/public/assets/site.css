@@ -238,11 +238,13 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible {
 .link-box input { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
 
 /* Screen editor */
-.screen-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.screen-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .screen-title { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 14rem; }
+.screen-title .field { flex: 1; margin: 0; }
 .screen-title input { font-weight: 600; font-size: 1.05rem; }
 .tag { font-size: 0.8rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); white-space: nowrap; }
 label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; margin-top: 26px; }
+.button-row .button-fields .muted { align-self: center; font-size: 0.9rem; }
 .button-row .button-fields { display: grid; gap: 6px; flex: 1; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
 .save-bar { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); padding: 12px 0; margin-top: 20px; }
 .save-bar .wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

@@ -105,14 +105,14 @@
   }
 
   function screenCard(s, i) {
-    var name = textInput(s.name, 40, 'Screen ' + (i + 1), function (v) { s.name = v; });
-    // Other screens' menus show this name, so refresh them once editing is done.
+    var name = textInput(s.name, 40, 'Enter Screen ' + (i + 1) + ' title', function (v) { s.name = v; });
+    // Other screens' menus show this title, so refresh them once editing is done.
     name.addEventListener('change', render);
-    name.setAttribute('aria-label', 'Screen name');
 
     var head = el('div', { className: 'screen-head' }, [
       el('div', { className: 'screen-title' }, [
-        name, i === 0 ? el('span', { className: 'tag', text: 'Start screen' }) : null
+        field('Screen title', name, 'Only you see this. Buttons use it to say where they go.'),
+        i === 0 ? el('span', { className: 'tag', text: 'Start screen' }) : null
       ]),
       el('div', { className: 'row-actions' }, [
         smallButton('Up', 'btn-secondary', function () { move(flow.screens, i, -1); }, i === 0),
@@ -126,11 +126,6 @@
       ])
     ]);
 
-    var kind = select([
-      { value: 'buttons', text: 'Buttons you set up' },
-      { value: 'people', text: 'A button for each person on your People list' }
-    ], s.kind, 'Choose…', function (v) { s.kind = v; });
-
     var returnAfter = el('input', { type: 'number', min: '0', max: '120', step: '1', inputmode: 'numeric' });
     returnAfter.value = String(s.returnAfter || 0);
     returnAfter.addEventListener('input', function () { s.returnAfter = Number(returnAfter.value) || 0; markDirty(); });
@@ -142,10 +137,7 @@
 
     var body = [
       head,
-      el('div', { className: 'form-row' }, [
-        field('Message at the top', textInput(s.message, 200, 'e.g. Welcome! How can we help?', function (v) { s.message = v; })),
-        field('Buttons on this screen', kind)
-      ]),
+      field('Message at the top', textInput(s.message, 200, 'e.g. Welcome! How can we help?', function (v) { s.message = v; })),
       el('div', { className: 'form-row' }, [
         field('Count down back to the start after', returnAfter, 'Seconds. 0 for no countdown.'),
         el('div', { className: 'field' }, [
@@ -154,26 +146,20 @@
       ])
     ];
 
-    if (s.kind === 'people') {
-      body.push(field('After someone is tapped and notified, show', select(screenChoices(), s.then, 'Choose a screen…', function (v) { s.then = v; }),
-        'Each person on your People list gets a button. Tapping it emails them.'));
-    } else {
-      s.buttons = s.buttons || [];
-      var list = el('ul', { className: 'list' });
-      s.buttons.forEach(function (b, j) { list.appendChild(buttonRow(s, b, j)); });
-      if (!s.buttons.length) {
-        list.appendChild(el('li', { className: 'empty', text: 'No buttons. Visitors just read the message, so add a countdown to send the kiosk back to the start.' }));
-      }
-      body.push(el('label', { text: 'Buttons' }));
-      body.push(list);
-      body.push(smallButton('Add a button', 'btn-secondary', function () {
-        s.buttons.push({ label: '', action: 'screen', target: '' });
-        markDirty();
-        render();
-        var inputs = screensEl.querySelectorAll('[data-screen="' + s.id + '"] .button-row input');
-        if (inputs.length) inputs[inputs.length - 1].focus();
-      }, s.buttons.length >= MAX_BUTTONS));
+    var list = el('ul', { className: 'list' });
+    s.buttons.forEach(function (b, j) { list.appendChild(buttonRow(s, b, j)); });
+    if (!s.buttons.length) {
+      list.appendChild(el('li', { className: 'empty', text: 'No buttons. Visitors just read the message, so add a countdown to send the kiosk back to the start.' }));
     }
+    body.push(el('label', { text: 'Buttons' }));
+    body.push(list);
+    body.push(smallButton('Add a button', 'btn-secondary', function () {
+      s.buttons.push({ label: '', action: 'screen', target: '' });
+      markDirty();
+      render();
+      var inputs = screensEl.querySelectorAll('[data-screen="' + s.id + '"] .button-row input');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    }, s.buttons.length >= MAX_BUTTONS));
 
     var card = el('section', { className: 'card panel screen-card', 'data-screen': s.id }, body);
     return card;
@@ -185,19 +171,24 @@
     var action = select([
       { value: 'screen', text: 'Goes to a screen' },
       { value: 'notify', text: 'Notifies a person' },
-      { value: 'home', text: 'Goes back to the start' }
+      { value: 'home', text: 'Goes back to the start' },
+      { value: 'people', text: 'Lists all your people' }
     ], b.action, 'Choose what it does…', function (v) { b.action = v; });
     action.setAttribute('aria-label', 'What the button does');
 
-    var parts = [label, action];
+    // A People-list entry becomes one button per person, named for them, so it has no text of its own.
+    var parts = b.action === 'people'
+      ? [el('span', { className: 'muted', text: 'A button for each person. Tapping one emails them.' }), action]
+      : [label, action];
     if (b.action === 'notify') {
       var person = select(personChoices(), b.person, account.clinicians.length ? 'Choose a person…' : 'Add people on the dashboard first', function (v) { b.person = v; });
       person.setAttribute('aria-label', 'Person to notify');
       parts.push(person);
     }
-    if (b.action === 'screen' || b.action === 'notify') {
-      var target = select(screenChoices(), b.target, b.action === 'notify' ? 'Then show…' : 'Choose a screen…', function (v) { b.target = v; });
-      target.setAttribute('aria-label', b.action === 'notify' ? 'Screen to show after notifying' : 'Screen to go to');
+    if (b.action === 'screen' || b.action === 'notify' || b.action === 'people') {
+      var then = b.action !== 'screen';
+      var target = select(screenChoices(), b.target, then ? 'Then show…' : 'Choose a screen…', function (v) { b.target = v; });
+      target.setAttribute('aria-label', then ? 'Screen to show after notifying' : 'Screen to go to');
       parts.push(target);
     }
 
@@ -270,7 +261,7 @@
   }
 
   document.getElementById('add-screen').addEventListener('click', function () {
-    var s = { id: newId(), name: '', kind: 'buttons', message: '', showPhone: false, returnAfter: 0, buttons: [] };
+    var s = { id: newId(), name: '', message: '', showPhone: false, returnAfter: 0, buttons: [] };
     flow.screens.push(s);
     markDirty();
     render();
