@@ -198,7 +198,7 @@
   function renderTemplates() {
     var names = fieldNames();
     document.getElementById('field-names').textContent = names.length
-      ? 'Field names on your screens: ' + names.map(function (n) { return '{' + n + '}'; }).join(', ') + '.'
+      ? 'Tags from your screens: ' + names.map(function (n) { return '{' + n + '}'; }).join(', ') + '.'
       : 'Your screens don\'t ask for any information yet. Add an information screen in Edit screens to collect some.';
 
     document.getElementById('add-template').hidden = false;

@@ -81,8 +81,8 @@
   }
 
   function templateChoices() {
-    return [{ value: '', text: 'Sends the Standard email' }].concat(account.templates.map(function (t) {
-      return { value: t.id, text: 'Sends "' + t.name + '"' };
+    return [{ value: '', text: 'Standard' }].concat(account.templates.map(function (t) {
+      return { value: t.id, text: t.name };
     }));
   }
 
@@ -219,9 +219,51 @@
     if (inputs.length) inputs[inputs.length - 1].focus();
   }
 
+  // Move up / Move down / Remove for row j of list.
+  function rowActions(list, j) {
+    var up = smallButton('\u2191', 'btn-secondary', function () { move(list, j, -1); }, j === 0);
+    var down = smallButton('\u2193', 'btn-secondary', function () { move(list, j, 1); }, j === list.length - 1);
+    up.title = 'Move up';
+    up.setAttribute('aria-label', 'Move up');
+    down.title = 'Move down';
+    down.setAttribute('aria-label', 'Move down');
+    return el('div', { className: 'row-actions' }, [
+      up, down,
+      smallButton('Remove', 'btn-danger', function () { list.splice(j, 1); markDirty(); render(); })
+    ]);
+  }
+
+  // Column headings over a list of rows. An invisible copy of the row buttons keeps
+  // the headings lined up with the columns below.
+  function listHead(columns, cols) {
+    var spacer = rowActions([], 0);
+    spacer.setAttribute('aria-hidden', 'true');
+    spacer.className += ' spacer';
+    return el('li', { className: 'list-head grid-row ' + cols }, columns.map(function (c) {
+      return el('span', { text: c });
+    }).concat([spacer]));
+  }
+
+  // Fills a column that doesn't apply to this row's action.
+  function blank(text) {
+    return el('span', { className: 'muted cell-note', text: text || '' });
+  }
+
+  function notifies(b) {
+    return b.action === 'notify' || b.action === 'people';
+  }
+
   function buttonParts(s) {
+    // The Recipient and Email columns only appear on screens with a button that notifies.
+    var wide = s.buttons.some(notifies);
+    var cols = wide ? 'cols-buttons-wide' : 'cols-buttons';
     var list = el('ul', { className: 'list' });
-    s.buttons.forEach(function (b, j) { list.appendChild(buttonRow(s, b, j)); });
+    if (s.buttons.length) {
+      list.appendChild(listHead(wide
+        ? ['Button label', 'Action', 'Recipient', 'Email', 'Next screen']
+        : ['Button label', 'Action', 'Next screen'], cols));
+    }
+    s.buttons.forEach(function (b, j) { list.appendChild(buttonRow(s, b, j, wide, cols)); });
     if (!s.buttons.length) {
       list.appendChild(el('li', { className: 'empty', text: 'No buttons. Visitors just read the message, so set an auto return to send the kiosk back to the start.' }));
     }
@@ -239,6 +281,7 @@
 
   function formParts(s) {
     var list = el('ul', { className: 'list' });
+    if (s.fields.length) list.appendChild(listHead(['Prompt the visitor sees', 'Tag', 'Required?'], 'cols-fields'));
     s.fields.forEach(function (f, j) { list.appendChild(fieldRow(s, f, j)); });
     if (!s.fields.length) {
       list.appendChild(el('li', { className: 'empty', text: 'No entry fields yet. Add the first one below.' }));
@@ -252,7 +295,7 @@
         render();
         focusLast(s);
       }, s.fields.length >= MAX_FIELDS),
-      el('p', { className: 'hint', text: 'Example: the prompt "Please enter your first name" with the field name "First name". To show an answer on a later screen, put its field name in braces in a message or button, like {First name}. {Person} shows the name of whoever the visitor notified. Email templates on the dashboard use the same tags. Answers go only in the email and are never stored.' }),
+      el('p', { className: 'hint', text: 'Example: the prompt "Please enter your first name" with the tag "First name". To show an answer on a later screen, put its tag in braces in a message or button, like {First name}. {Person} shows the name of whoever the visitor notified. Email templates on the dashboard use the same tags. Answers go only in the email and are never stored.' }),
       el('div', { className: 'form-row', style: 'margin-top: 14px' }, [
         field('Submit button text', textInput(s.submit.label, 60, 'Continue', function (v) { s.submit.label = v; }),
           'Visitors can tap it once every required field is filled in.'),
@@ -262,73 +305,68 @@
   }
 
   function fieldRow(s, f, j) {
-    var prompt = textInput(f.label, 120, 'Prompt the visitor sees', function (v) { f.label = v; });
+    var prompt = textInput(f.label, 120, 'e.g. Please enter your first name', function (v) { f.label = v; });
     prompt.setAttribute('aria-label', 'Prompt the visitor sees');
-    var name = textInput(f.name, 30, 'Field name', function (v) { f.name = v; refreshWarnings(); });
-    name.setAttribute('aria-label', 'Field name');
-    var required = el('input', { type: 'checkbox' });
+    var name = textInput(f.name, 30, 'e.g. First name', function (v) { f.name = v; refreshWarnings(); });
+    name.setAttribute('aria-label', 'Tag');
+    var required = el('input', { type: 'checkbox', 'aria-label': 'Required' });
     required.checked = !!f.required;
     required.addEventListener('change', function () { f.required = required.checked; markDirty(); });
 
-    return el('li', { className: 'button-row' }, [
-      el('div', { className: 'button-fields' }, [
-        prompt, name, el('label', { className: 'inline-check' }, [required, document.createTextNode('Required')])
-      ]),
-      el('div', { className: 'row-actions' }, [
-        smallButton('Up', 'btn-secondary', function () { move(s.fields, j, -1); }, j === 0),
-        smallButton('Down', 'btn-secondary', function () { move(s.fields, j, 1); }, j === s.fields.length - 1),
-        smallButton('Remove', 'btn-danger', function () { s.fields.splice(j, 1); markDirty(); render(); })
-      ])
+    return el('li', { className: 'button-row grid-row cols-fields' }, [
+      prompt, name, el('label', { className: 'cell-check' }, [required, el('span', { className: 'narrow-only', text: 'Required' })]), rowActions(s.fields, j)
     ]);
   }
 
-  function buttonRow(s, b, j) {
-    var label = textInput(b.label, 60, 'Button text', function (v) { b.label = v; });
-    label.setAttribute('aria-label', 'Button text');
+  function buttonRow(s, b, j, wide, cols) {
     var action = select([
-      { value: 'screen', text: 'Goes to a screen' },
-      { value: 'notify', text: 'Notifies a person' },
-      { value: 'home', text: 'Goes back to the start' },
-      { value: 'people', text: 'Lists all your people' }
+      { value: 'screen', text: 'Go to a screen' },
+      { value: 'notify', text: 'Notify a person' },
+      { value: 'home', text: 'Back to start' },
+      { value: 'people', text: 'List all people' }
     ], b.action, 'Choose what it does…', function (v) { b.action = v; });
-    action.setAttribute('aria-label', 'What the button does');
+    action.setAttribute('aria-label', 'Action');
 
     // A People-list entry becomes one button per person, named for them, so it has no text of its own.
-    var parts = b.action === 'people'
-      ? [el('span', { className: 'muted', text: 'A button for each person. Tapping one emails them.' }), action]
-      : [label, action];
-    if (b.action === 'notify') {
-      var person = select(personChoices(), b.person, account.clinicians.length ? 'Choose a person…' : 'Add people on the dashboard first', function (v) { b.person = v; });
-      person.setAttribute('aria-label', 'Person to notify');
-      parts.push(person);
+    var label;
+    if (b.action === 'people') {
+      label = blank('Each person\'s name');
+    } else {
+      label = textInput(b.label, 60, 'Button text', function (v) { b.label = v; });
+      label.setAttribute('aria-label', 'Button label');
     }
-    if (b.action === 'screen' || b.action === 'notify' || b.action === 'people') {
-      var then = b.action !== 'screen';
-      var target = select(screenChoices(), b.target, then ? 'Then show…' : 'Choose a screen…', function (v) { b.target = v; });
-      target.setAttribute('aria-label', then ? 'Screen to show after notifying' : 'Screen to go to');
-      parts.push(target);
-    }
+    var cells = [label, action];
+
     var warning = null;
-    if (b.action === 'notify' || b.action === 'people') {
-      var template = select(templateChoices(), b.template || '', 'Choose an email…', function (v) {
-        if (v) b.template = v;
-        else delete b.template;
-      });
-      template.setAttribute('aria-label', 'Email to send');
-      parts.push(template);
-      warning = el('div', { className: 'notice notice-error' });
-      warnings.push({ node: warning, screen: s, button: b });
+    if (wide) {
+      var recipient = blank();
+      var email = blank();
+      if (b.action === 'notify') {
+        recipient = select(personChoices(), b.person, account.clinicians.length ? 'Choose a person…' : 'Add people on the dashboard first', function (v) { b.person = v; });
+        recipient.setAttribute('aria-label', 'Recipient');
+      } else if (b.action === 'people') {
+        recipient = blank('The person tapped');
+      }
+      if (notifies(b)) {
+        email = select(templateChoices(), b.template || '', 'Choose an email…', function (v) {
+          if (v) b.template = v;
+          else delete b.template;
+        });
+        email.setAttribute('aria-label', 'Email');
+        warning = el('div', { className: 'notice notice-error' });
+        warnings.push({ node: warning, screen: s, button: b });
+      }
+      cells.push(recipient, email);
     }
 
-    return el('li', { className: 'button-row' }, [
-      el('div', { className: 'button-fields' }, parts),
-      el('div', { className: 'row-actions' }, [
-        smallButton('Up', 'btn-secondary', function () { move(s.buttons, j, -1); }, j === 0),
-        smallButton('Down', 'btn-secondary', function () { move(s.buttons, j, 1); }, j === s.buttons.length - 1),
-        smallButton('Remove', 'btn-danger', function () { s.buttons.splice(j, 1); markDirty(); render(); })
-      ]),
-      warning
-    ]);
+    var next = blank(b.action === 'home' ? 'Start screen' : '');
+    if (b.action === 'screen' || notifies(b)) {
+      next = select(screenChoices(), b.target, 'Choose a screen…', function (v) { b.target = v; });
+      next.setAttribute('aria-label', 'Next screen');
+    }
+    cells.push(next, rowActions(s.buttons, j), warning);
+
+    return el('li', { className: 'button-row grid-row ' + cols }, cells);
   }
 
   function setUpCopy() {

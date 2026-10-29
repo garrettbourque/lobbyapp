@@ -188,13 +188,13 @@ function checkForm(s, screen, ids, fieldNames, where) {
     const fieldName = str(f && f.name, 30).replace(/\s+/g, ' ');
     if (!label) return 'Every entry field needs a prompt for the visitor' + where;
     if (!FIELD_NAME.test(fieldName)) {
-      return 'Give the "' + label + '" field a name of letters, numbers and spaces, starting with a letter' + where;
+      return 'Give the "' + label + '" field a tag of letters, numbers and spaces, starting with a letter' + where;
     }
     const key = fieldName.toLowerCase();
     if (TAGS.some(function (t) { return t.toLowerCase() === key; })) {
-      return 'Choose another name for the "' + label + '" field. ' + TAGS.slice(0, -1).join(', ') + ' and ' + TAGS[TAGS.length - 1] + ' are already used as tags.';
+      return 'Choose another tag for the "' + label + '" field. ' + TAGS.slice(0, -1).join(', ') + ' and ' + TAGS[TAGS.length - 1] + ' are already used as tags.';
     }
-    if (fieldNames.has(key)) return 'Two entry fields are named "' + fieldName + '". Field names must be different across all screens.';
+    if (fieldNames.has(key)) return 'Two entry fields use the tag "' + fieldName + '". Tags must be different across all screens.';
     fieldNames.add(key);
     screen.fields.push({ label: label, name: fieldName, required: !!(f && f.required) });
   }
