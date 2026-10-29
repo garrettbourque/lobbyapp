@@ -44,7 +44,7 @@ export async function getAccount(env, user, origin) {
     }),
     kiosks: kiosks.results.map(function (k) {
       return {
-        token: k.token, label: k.label || 'Kiosk', flow: kioskFlow(k), customized: !!k.flow,
+        token: k.token, label: k.label || 'Kiosk', flow: kioskFlow(k, f.office_phone), customized: !!k.flow,
         link: kioskLink(origin, k.token), createdAt: k.created_at
       };
     }),

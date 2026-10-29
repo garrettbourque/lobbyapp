@@ -18,8 +18,8 @@ export async function getKiosk(env, kiosk, headers) {
   ).bind(kiosk.facility_id).all();
   return json({
     ok: true,
-    facility: { name: kiosk.name, officePhone: kiosk.office_phone || '' },
-    flow: kioskFlow(kiosk),
+    facility: { name: kiosk.name },
+    flow: kioskFlow(kiosk, kiosk.office_phone),
     clinicians: results
   }, 200, headers);
 }

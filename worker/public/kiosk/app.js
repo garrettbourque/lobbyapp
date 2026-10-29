@@ -2,8 +2,7 @@
   'use strict';
 
   const messageEl = document.getElementById('message');
-  const phoneEl = document.getElementById('phone');
-  const phoneLink = document.getElementById('phone-link');
+  const backBtn = document.getElementById('back');
   const buttonsEl = document.getElementById('buttons');
   const countdownEl = document.getElementById('countdown');
 
@@ -13,6 +12,9 @@
   // { facility, flow, clinicians } from the server; see worker/src/flow.js for the flow format.
   let data = null;
   let current = null;
+  // Screens visited before this one, for Back. Cleared at the start and once someone is
+  // notified, since going back then could send a second notice.
+  let trail = [];
   let timer = null;
 
   function screens() {
@@ -53,6 +55,15 @@
     show(screens()[0].id);
   }
 
+  function go(id) {
+    trail.push(current.id);
+    show(id);
+  }
+
+  function goBack() {
+    show(trail.pop());
+  }
+
   function addButton(label, className, onTap) {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -65,7 +76,7 @@
   function notSetUp() {
     clearTimer();
     messageEl.textContent = 'This kiosk is not set up yet.';
-    phoneEl.hidden = true;
+    backBtn.hidden = true;
     buttonsEl.innerHTML = '';
     countdownEl.textContent = '';
   }
@@ -73,13 +84,11 @@
   function show(id) {
     const screen = screens().find(function (s) { return s.id === id; }) || screens()[0];
     current = screen;
+    if (isHome()) trail = [];
+    backBtn.hidden = !trail.length;
 
     messageEl.textContent = screen.message;
     messageEl.hidden = !screen.message;
-    const phone = data.facility.officePhone;
-    phoneEl.hidden = !(screen.showPhone && phone);
-    phoneLink.textContent = phone;
-    phoneLink.href = 'tel:' + String(phone).replace(/[^0-9+]/g, '');
 
     buttonsEl.innerHTML = '';
     const people = new Set(data.clinicians.map(function (c) { return c.id; }));
@@ -87,7 +96,7 @@
       if (b.action === 'home') {
         addButton(b.label, 'btn btn-secondary', goHome);
       } else if (b.action === 'screen') {
-        addButton(b.label, 'btn btn-primary', function () { show(b.target); });
+        addButton(b.label, 'btn btn-primary', function () { go(b.target); });
       } else if (b.action === 'notify' && people.has(b.person)) {
         // A button for someone since removed from the business is hidden.
         addButton(b.label, 'btn btn-primary', function () { notify(b.person, b.target); });
@@ -107,6 +116,7 @@
   }
 
   function notify(personId, then) {
+    trail = [];
     show(then);
     fetch(CONFIG.apiBaseUrl + '/api/kiosk/' + encodeURIComponent(kioskToken) + '/checkin', {
       method: 'POST',
@@ -155,6 +165,7 @@
     }
     loadKiosk();
     setInterval(loadKiosk, CONFIG.kioskRefreshMinutes * 60 * 1000);
+    backBtn.addEventListener('click', goBack);
     // Any tap restarts the idle clock on screens without a countdown.
     document.addEventListener('pointerdown', function () {
       if (current && !current.returnAfter && !isHome()) armTimer(current);

@@ -1,7 +1,7 @@
 // Lobby kiosk configuration
 //
 // Each iPad opens its kiosk link (lobbyapp.app/?kiosk=...), which loads that kiosk's
-// screens, the business phone and its people from the API. Owners manage those from their dashboard.
+// screens and its people from the API. Owners manage those from their dashboard.
 
 const CONFIG = {
   // The API is on the same site, so no host is needed.

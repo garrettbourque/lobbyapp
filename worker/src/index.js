@@ -1,7 +1,7 @@
 // LobbyApp Worker: serves the site (public/) and its API.
 //
 // Kiosk (token in the link, no sign-in):
-//   GET  /api/kiosk/:token            facility name, phone, screens (flow) and clinician list (no emails)
+//   GET  /api/kiosk/:token            facility name, screens (flow) and clinician list (no emails)
 //   POST /api/kiosk/:token/checkin    { clinicianId } -> emails that clinician
 // Accounts:
 //   POST /api/signup | /api/signin | /api/signout | /api/forgot | /api/reset

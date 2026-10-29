@@ -4,7 +4,6 @@
 // { screens: [ {
 //     id, name,              id is referenced by buttons; name is only shown in the editor
 //     message,               heading at the top
-//     showPhone,             show the business phone number under the message
 //     returnAfter,           seconds before going back to the first screen (0 = only after a minute idle)
 //     buttons: [ { label, action, target, person } ]
 //       action 'screen' -> go to target
@@ -13,7 +12,7 @@
 //                          emails that person, then goes to target
 //       action 'home'   -> back to the first screen
 // } ] }
-// The first screen is where the kiosk starts.
+// The first screen is where the kiosk starts. The kiosk adds a Back button to the others.
 
 import { str } from './util.js';
 
@@ -24,55 +23,59 @@ const MAX_BUTTONS = 10;
 const MAX_RETURN_AFTER = 120;
 const ID = /^[A-Za-z0-9]{1,12}$/;
 
-export function defaultFlow(welcomeMessage) {
+export function defaultFlow(welcomeMessage, officePhone) {
   return {
     screens: [
       {
-        id: 'home', name: 'Welcome', message: welcomeMessage || DEFAULT_WELCOME,
-        showPhone: false, returnAfter: 0,
+        id: 'home', name: 'Welcome', message: welcomeMessage || DEFAULT_WELCOME, returnAfter: 0,
         buttons: [
           { label: 'Yes, I have an appointment.', action: 'screen', target: 'people' },
           { label: 'No, I do not have an appointment.', action: 'screen', target: 'noappt' }
         ]
       },
       {
-        id: 'people', name: 'Pick a person', message: "Please select who you're here to see.",
-        showPhone: false, returnAfter: 0,
+        id: 'people', name: 'Pick a person', message: "Please select who you're here to see.", returnAfter: 0,
         buttons: [{ action: 'people', target: 'arrived' }]
       },
       {
         id: 'arrived', name: 'Checked in',
         message: 'They have been notified you have arrived. Please have a seat and they will be with you shortly.',
-        showPhone: false, returnAfter: 5, buttons: []
+        returnAfter: 5, buttons: []
       },
       {
-        id: 'noappt', name: 'No appointment', message: 'Please call the office to schedule an appointment.',
-        showPhone: true, returnAfter: 5,
-        buttons: [{ label: 'Back', action: 'home' }]
+        id: 'noappt', name: 'No appointment',
+        message: 'Please call the office' + (officePhone ? ' at ' + officePhone : '') + ' to schedule an appointment.',
+        returnAfter: 5, buttons: []
       }
     ]
   };
 }
 
-// Flows saved before 2026-10-29 marked whole screens as kind 'people' (with the next
-// screen in then); that is now a single 'people' button.
-function upgrade(flow) {
+// Flows saved on 2026-10-28 used fields since dropped: screens of kind 'people' (with the
+// next screen in then) are now a single 'people' button, and showPhone is now the phone
+// number written into the message. Runs on every read until a flow is saved again.
+function upgrade(flow, officePhone) {
   (flow.screens || []).forEach(function (s) {
-    if (s && s.kind === 'people') s.buttons = [{ action: 'people', target: s.then }];
-    if (s) {
-      delete s.kind;
-      delete s.then;
+    if (!s) return;
+    if (s.kind === 'people') s.buttons = [{ action: 'people', target: s.then }];
+    if (s.showPhone && officePhone) s.message = ((s.message || '') + ' Phone: ' + officePhone).trim();
+    // The old default "No appointment" screen had its own Back button; the kiosk now adds one.
+    if (s.showPhone && Array.isArray(s.buttons)) {
+      s.buttons = s.buttons.filter(function (b) { return !(b && b.action === 'home' && b.label === 'Back'); });
     }
+    delete s.kind;
+    delete s.then;
+    delete s.showPhone;
   });
   return flow;
 }
 
 // The flow a kiosk row runs: its saved flow, or the default built from its welcome message.
-export function kioskFlow(row) {
+export function kioskFlow(row, officePhone) {
   if (row.flow) {
-    try { return upgrade(JSON.parse(row.flow)); } catch (e) {}
+    try { return upgrade(JSON.parse(row.flow), officePhone); } catch (e) {}
   }
-  return defaultFlow(row.welcome_message);
+  return defaultFlow(row.welcome_message, officePhone);
 }
 
 // Checks a flow sent from the editor. personIds are the business's active clinicians.
@@ -99,8 +102,7 @@ export function validateFlow(input, personIds) {
       return { error: 'The countdown must be 0 to ' + MAX_RETURN_AFTER + ' seconds' + where };
     }
     const screen = {
-      id: s.id, name: name, message: str(s.message, 200),
-      showPhone: !!s.showPhone, returnAfter: returnAfter, buttons: []
+      id: s.id, name: name, message: str(s.message, 200), returnAfter: returnAfter, buttons: []
     };
 
     const buttons = Array.isArray(s.buttons) ? s.buttons : [];

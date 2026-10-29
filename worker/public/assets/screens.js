@@ -130,19 +130,11 @@
     returnAfter.value = String(s.returnAfter || 0);
     returnAfter.addEventListener('input', function () { s.returnAfter = Number(returnAfter.value) || 0; markDirty(); });
 
-    var phone = el('input', { type: 'checkbox' });
-    phone.checked = !!s.showPhone;
-    phone.addEventListener('change', function () { s.showPhone = phone.checked; markDirty(); });
-    var phoneHint = account.facility.officePhone ? null : el('span', { className: 'muted', text: ' (set your office phone on the dashboard first)' });
-
     var body = [
       head,
-      field('Message at the top', textInput(s.message, 200, 'e.g. Welcome! How can we help?', function (v) { s.message = v; })),
-      el('div', { className: 'form-row' }, [
-        field('Count down back to the start after', returnAfter, 'Seconds. 0 for no countdown.'),
-        el('div', { className: 'field' }, [
-          el('label', { className: 'check' }, [phone, document.createTextNode('Show the office phone number'), phoneHint])
-        ])
+      el('div', { className: 'message-row' }, [
+        field('Message at the top', textInput(s.message, 200, 'e.g. Welcome! How can we help?', function (v) { s.message = v; })),
+        field('Countdown to the start', returnAfter, 'Seconds. 0 for none.')
       ])
     ];
 
@@ -261,7 +253,7 @@
   }
 
   document.getElementById('add-screen').addEventListener('click', function () {
-    var s = { id: newId(), name: '', message: '', showPhone: false, returnAfter: 0, buttons: [] };
+    var s = { id: newId(), name: '', message: '', returnAfter: 0, buttons: [] };
     flow.screens.push(s);
     markDirty();
     render();
