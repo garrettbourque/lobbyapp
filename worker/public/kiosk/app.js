@@ -20,7 +20,8 @@
   // and only until the kiosk returns to the start, so later screens can show it. Every
   // field shown gets an entry, even if left blank, so the email can tell blank from never asked.
   let answers = {};
-  // Name of whoever this visitor notified, for {Person}. Cleared with the answers.
+  // Name of whoever this visitor notified ("A, B and C" for several), for {Person}.
+  // Cleared with the answers.
   let person = '';
   let timer = null;
 
@@ -195,10 +196,14 @@
         addButton(fill(b.label), 'btn btn-primary', function () { go(b.target); });
       } else if (b.action === 'notify' && people.has(b.person)) {
         // A button for someone since removed from the business is hidden.
-        addButton(fill(b.label), 'btn btn-primary', function () { notify(b.person, b.target, b.template); });
+        addButton(fill(b.label), 'btn btn-primary', function () { notify([b.person], b.target, b.template); });
+      } else if (b.action === 'emails') {
+        // Emails everyone on the button still with the business; hidden if that's no one.
+        const to = (b.persons || []).filter(function (id) { return people.has(id); });
+        if (to.length) addButton(fill(b.label), 'btn btn-primary', function () { notify(to, b.target, b.template); });
       } else if (b.action === 'people') {
         data.clinicians.forEach(function (c) {
-          addButton(c.name, 'btn btn-primary', function () { notify(c.id, b.target, b.template); });
+          addButton(c.name, 'btn btn-primary', function () { notify([c.id], b.target, b.template); });
         });
         if (!data.clinicians.length) {
           const msg = document.createElement('p');
@@ -210,20 +215,26 @@
     });
   }
 
-  function notify(personId, then, template) {
+  // Emails each of personIds (one check-in apiece), then shows the "then" screen.
+  function notify(personIds, then, template) {
     const sent = answers;
-    const c = data.clinicians.find(function (x) { return x.id === personId; });
-    person = c ? c.name : '';
+    const names = personIds.map(function (id) {
+      const c = data.clinicians.find(function (x) { return x.id === id; });
+      return c ? c.name : '';
+    }).filter(Boolean);
+    person = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : (names[0] || '');
     trail = [];
     show(then);
-    fetch(CONFIG.apiBaseUrl + '/api/kiosk/' + encodeURIComponent(kioskToken) + '/checkin', {
-      method: 'POST',
-      mode: 'cors',
-      cache: 'no-store',
-      keepalive: true,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clinicianId: personId, answers: sent, template: template || '' })
-    }).catch(function () {});
+    personIds.forEach(function (id) {
+      fetch(CONFIG.apiBaseUrl + '/api/kiosk/' + encodeURIComponent(kioskToken) + '/checkin', {
+        method: 'POST',
+        mode: 'cors',
+        cache: 'no-store',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicianId: id, answers: sent, template: template || '' })
+      }).catch(function () {});
+    });
   }
 
   // A visitor partway through keeps their screen; new screens show from the next start.

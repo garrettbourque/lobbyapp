@@ -8,12 +8,13 @@
 //     returnAfter,           seconds before going back to the first screen (0 = only after a minute idle)
 //
 //     'buttons' screens:
-//     buttons: [ { label, action, target, person, template } ]
+//     buttons: [ { label, action, target, person, persons, template } ]
 //       action 'screen' -> go to target
 //       action 'notify' -> email person (a clinician id), then go to target
+//       action 'emails' -> email each of persons (clinician ids), then go to target
 //       action 'people' -> one button per person on the People list (no label); tapping
 //                          emails that person, then goes to target
-//       template        -> on 'notify' and 'people': the email_templates id to send;
+//       template        -> on 'notify', 'emails' and 'people': the email_templates id to send;
 //                          absent means the standard notice
 //       action 'home'   -> back to the first screen
 //
@@ -33,6 +34,7 @@ export const DEFAULT_WELCOME = 'Do you have an appointment?';
 const MAX_SCREENS = 30;
 const MAX_BUTTONS = 10;
 const MAX_FIELDS = 10;
+const MAX_RECIPIENTS = 10;
 const MAX_RETURN_AFTER = 120;
 const ID = /^[A-Za-z0-9]{1,12}$/;
 // Field names appear inside {braces} in messages, so keep them to plain words.
@@ -153,7 +155,7 @@ function checkButtons(s, screen, ids, personIds, templateIds, where) {
     const label = str(b && b.label, 60);
     if (!label) return 'Every button needs text' + where;
     const button = { label: label, action: action };
-    if (action === 'screen' || action === 'notify') {
+    if (action === 'screen' || action === 'notify' || action === 'emails') {
       if (!ids.has(b.target)) return 'Choose where the "' + label + '" button goes' + where;
       button.target = b.target;
     } else if (action !== 'home') {
@@ -162,6 +164,18 @@ function checkButtons(s, screen, ids, personIds, templateIds, where) {
     if (action === 'notify') {
       if (!personIds.has(b.person)) return 'Choose who the "' + label + '" button notifies' + where;
       button.person = b.person;
+      if (!readTemplate(b, button, templateIds)) return 'Choose the email the "' + label + '" button sends' + where;
+    }
+    if (action === 'emails') {
+      const persons = Array.isArray(b.persons) ? b.persons.filter(function (p, k) {
+        return typeof p === 'string' && b.persons.indexOf(p) === k;
+      }) : [];
+      if (!persons.length) return 'Add at least one recipient to the "' + label + '" button' + where;
+      if (persons.length > MAX_RECIPIENTS) return 'A button can email up to ' + MAX_RECIPIENTS + ' people' + where;
+      if (persons.some(function (p) { return !personIds.has(p); })) {
+        return 'Someone the "' + label + '" button emails is no longer on your People list. Remove them from the button' + where;
+      }
+      button.persons = persons;
       if (!readTemplate(b, button, templateIds)) return 'Choose the email the "' + label + '" button sends' + where;
     }
     screen.buttons.push(button);

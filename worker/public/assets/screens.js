@@ -9,6 +9,7 @@
   var token = decodeURIComponent(window.location.hash.slice(1));
   var MAX_BUTTONS = 10;
   var MAX_FIELDS = 10;
+  var MAX_RECIPIENTS = 10;
   // Tags every email can use; see worker/src/flow.js.
   var TAGS = ['person', 'time', 'kiosk', 'all answers'];
 
@@ -250,7 +251,7 @@
   }
 
   function notifies(b) {
-    return b.action === 'notify' || b.action === 'people';
+    return b.action === 'notify' || b.action === 'emails' || b.action === 'people';
   }
 
   function buttonParts(s) {
@@ -322,9 +323,14 @@
     var action = select([
       { value: 'screen', text: 'Go to a screen' },
       { value: 'notify', text: 'E-mail' },
+      { value: 'emails', text: 'Multiple E-mails' },
       { value: 'home', text: 'Back to start' },
       { value: 'people', text: 'List all people' }
-    ], b.action, 'Choose what it does…', function (v) { b.action = v; });
+    ], b.action, 'Choose what it does…', function (v) {
+      // Switching from E-mail keeps its recipient as the first of the list.
+      if (v === 'emails' && !b.persons) b.persons = b.person ? [b.person] : [];
+      b.action = v;
+    });
     action.setAttribute('aria-label', 'Action');
 
     // A People-list entry becomes one button per person, named for them, so it has no text of its own.
@@ -344,6 +350,9 @@
       if (b.action === 'notify') {
         recipient = select(personChoices(), b.person, account.clinicians.length ? 'Choose a person…' : 'Add people on the dashboard first', function (v) { b.person = v; });
         recipient.setAttribute('aria-label', 'Recipient');
+      } else if (b.action === 'emails') {
+        var count = (b.persons || []).length;
+        recipient = blank(count ? count + (count > 1 ? ' people, below' : ' person, below') : 'Add them below');
       } else if (b.action === 'people') {
         recipient = blank('The person tapped');
       }
@@ -364,9 +373,39 @@
       next = select(screenChoices(), b.target, 'Choose a screen…', function (v) { b.target = v; });
       next.setAttribute('aria-label', 'Next screen');
     }
-    cells.push(next, rowActions(s.buttons, j), warning);
+    cells.push(next, rowActions(s.buttons, j), b.action === 'emails' ? recipientList(b) : null, warning);
 
     return el('li', { className: 'button-row grid-row ' + cols }, cells);
+  }
+
+  // The people a Multiple E-mails button emails: an "Add recipient" menu, then each name with an x.
+  function recipientList(b) {
+    b.persons = b.persons || [];
+    var add = el('select', { className: 'btn btn-secondary btn-small add-recipient', 'aria-label': 'Add recipient' });
+    add.appendChild(el('option', { value: '', text: '+ Add recipient' }));
+    account.clinicians.forEach(function (c) {
+      if (b.persons.indexOf(c.id) === -1) add.appendChild(el('option', { value: c.id, text: c.name }));
+    });
+    add.disabled = add.options.length === 1 || b.persons.length >= MAX_RECIPIENTS;
+    add.addEventListener('change', function () {
+      if (!add.value) return;
+      b.persons.push(add.value);
+      markDirty();
+      render();
+    });
+
+    var chips = b.persons.map(function (id, k) {
+      var c = account.clinicians.find(function (x) { return x.id === id; });
+      var name = c ? c.name : 'Someone no longer listed';
+      var x = el('button', { type: 'button', className: 'chip-x', text: '\u00d7', title: 'Remove ' + name, 'aria-label': 'Remove ' + name });
+      x.addEventListener('click', function () {
+        b.persons.splice(k, 1);
+        markDirty();
+        render();
+      });
+      return el('span', { className: 'chip' + (c ? '' : ' chip-missing') }, [el('span', { text: name }), x]);
+    });
+    return el('div', { className: 'recipients' }, [add].concat(chips));
   }
 
   function setUpCopy() {
