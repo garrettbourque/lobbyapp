@@ -39,13 +39,28 @@ export async function checkin(request, env, kiosk, headers) {
     name: clinician.name,
     email: clinician.email,
     adminEmail: kiosk.admin_email,
-    time: formatTime(kiosk.timezone)
+    time: formatTime(kiosk.timezone),
+    answers: readAnswers(body.answers, kioskFlow(kiosk, kiosk.office_phone))
   });
 
   await env.DB.prepare('INSERT INTO checkins (facility_id, clinician_id, status) VALUES (?, ?, ?)')
     .bind(kiosk.facility_id, clinician.id, status).run();
 
   return json({ ok: status === 'sent', status: status }, status === 'sent' ? 200 : 202, headers);
+}
+
+// What the visitor typed on information screens, as "Name: value" lines for the email.
+// Only this kiosk's field names are accepted. Nothing here is stored.
+function readAnswers(answers, flow) {
+  if (!answers || typeof answers !== 'object') return '';
+  const lines = [];
+  flow.screens.forEach(function (s) {
+    (s.fields || []).forEach(function (f) {
+      const value = str(answers[f.name], 200).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
+      if (value) lines.push(f.name + ': ' + value);
+    });
+  });
+  return lines.length ? 'They entered:\n' + lines.join('\n') + '\n\n' : '';
 }
 
 // Emails one clinician, or tells the facility admin why that couldn't happen.
@@ -64,6 +79,7 @@ async function notifyClinician(env, n) {
     await sendEmail(env, n.email, 'Your client has arrived (' + n.time + ')',
       'Hi ' + n.name + ',\n\n' +
       'A client checked in at the lobby kiosk at ' + n.time + ' and is waiting for you.\n\n' +
+      n.answers +
       '- Lobby kiosk', 'Lobby Kiosk');
     return 'sent';
   } catch (e) {
@@ -83,5 +99,6 @@ async function alertAdmin(env, n, reason) {
     'A client checked in at the lobby kiosk at ' + n.time + ' for ' + n.name +
     ', but their clinician was not emailed.\n\n' +
     'Reason: ' + reason + '\n\n' +
+    n.answers +
     'The client was told their clinician was notified, so they may be waiting.', 'Lobby Kiosk');
 }

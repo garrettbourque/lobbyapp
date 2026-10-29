@@ -3,16 +3,25 @@
 //
 // { screens: [ {
 //     id, name,              id is referenced by buttons; name is only shown in the editor
+//     type,                  'buttons' | 'form' (information entry)
 //     message,               heading at the top
 //     returnAfter,           seconds before going back to the first screen (0 = only after a minute idle)
+//
+//     'buttons' screens:
 //     buttons: [ { label, action, target, person } ]
 //       action 'screen' -> go to target
 //       action 'notify' -> email person (a clinician id), then go to target
 //       action 'people' -> one button per person on the People list (no label); tapping
 //                          emails that person, then goes to target
 //       action 'home'   -> back to the first screen
+//
+//     'form' screens:
+//     fields: [ { label, name, required } ]   label is the prompt the visitor sees; name is
+//                                             how messages refer to the answer: {First name}
+//     submit: { label, target }               enabled once every required field is filled in
 // } ] }
 // The first screen is where the kiosk starts. The kiosk adds a Back button to the others.
+// Answers go in the notice email when someone is notified, and are never stored.
 
 import { str } from './util.js';
 
@@ -20,30 +29,33 @@ export const DEFAULT_WELCOME = 'Do you have an appointment?';
 
 const MAX_SCREENS = 30;
 const MAX_BUTTONS = 10;
+const MAX_FIELDS = 10;
 const MAX_RETURN_AFTER = 120;
 const ID = /^[A-Za-z0-9]{1,12}$/;
+// Field names appear inside {braces} in messages, so keep them to plain words.
+const FIELD_NAME = /^[A-Za-z][A-Za-z0-9 ]{0,29}$/;
 
 export function defaultFlow(welcomeMessage, officePhone) {
   return {
     screens: [
       {
-        id: 'home', name: 'Welcome', message: welcomeMessage || DEFAULT_WELCOME, returnAfter: 0,
+        id: 'home', name: 'Welcome', type: 'buttons', message: welcomeMessage || DEFAULT_WELCOME, returnAfter: 0,
         buttons: [
           { label: 'Yes, I have an appointment.', action: 'screen', target: 'people' },
           { label: 'No, I do not have an appointment.', action: 'screen', target: 'noappt' }
         ]
       },
       {
-        id: 'people', name: 'Pick a person', message: "Please select who you're here to see.", returnAfter: 0,
+        id: 'people', name: 'Pick a person', type: 'buttons', message: "Please select who you're here to see.", returnAfter: 0,
         buttons: [{ action: 'people', target: 'arrived' }]
       },
       {
-        id: 'arrived', name: 'Checked in',
+        id: 'arrived', name: 'Checked in', type: 'buttons',
         message: 'They have been notified you have arrived. Please have a seat and they will be with you shortly.',
         returnAfter: 5, buttons: []
       },
       {
-        id: 'noappt', name: 'No appointment',
+        id: 'noappt', name: 'No appointment', type: 'buttons',
         message: 'Please call the office' + (officePhone ? ' at ' + officePhone : '') + ' to schedule an appointment.',
         returnAfter: 5, buttons: []
       }
@@ -53,7 +65,8 @@ export function defaultFlow(welcomeMessage, officePhone) {
 
 // Flows saved on 2026-10-28 used fields since dropped: screens of kind 'people' (with the
 // next screen in then) are now a single 'people' button, and showPhone is now the phone
-// number written into the message. Runs on every read until a flow is saved again.
+// number written into the message. Screens saved before 2026-10-29 have no type and are
+// all button screens. Runs on every read until a flow is saved again.
 function upgrade(flow, officePhone) {
   (flow.screens || []).forEach(function (s) {
     if (!s) return;
@@ -63,6 +76,7 @@ function upgrade(flow, officePhone) {
     if (s.showPhone && Array.isArray(s.buttons)) {
       s.buttons = s.buttons.filter(function (b) { return !(b && b.action === 'home' && b.label === 'Back'); });
     }
+    if (s.type !== 'form') s.type = 'buttons';
     delete s.kind;
     delete s.then;
     delete s.showPhone;
@@ -92,6 +106,7 @@ export function validateFlow(input, personIds) {
     ids.add(id);
   }
 
+  const fieldNames = new Set();
   const out = [];
   for (let i = 0; i < screens.length; i++) {
     const s = screens[i];
@@ -99,41 +114,71 @@ export function validateFlow(input, personIds) {
     const where = ' on "' + name + '".';
     const returnAfter = Math.trunc(Number(s.returnAfter)) || 0;
     if (returnAfter < 0 || returnAfter > MAX_RETURN_AFTER) {
-      return { error: 'The countdown must be 0 to ' + MAX_RETURN_AFTER + ' seconds' + where };
+      return { error: 'Auto return must be 0 to ' + MAX_RETURN_AFTER + ' seconds' + where };
     }
-    const screen = {
-      id: s.id, name: name, message: str(s.message, 200), returnAfter: returnAfter, buttons: []
-    };
-
-    const buttons = Array.isArray(s.buttons) ? s.buttons : [];
-    if (buttons.length > MAX_BUTTONS) return { error: 'A screen can have up to ' + MAX_BUTTONS + ' buttons' + where };
-    for (const b of buttons) {
-      const action = b && b.action;
-      if (action === 'people') {
-        if (screen.buttons.some(function (x) { return x.action === 'people'; })) {
-          return { error: 'List everyone on your People list only once' + where };
-        }
-        if (!ids.has(b.target)) return { error: 'Choose the screen to show after someone on your People list is tapped' + where };
-        screen.buttons.push({ action: action, target: b.target });
-        continue;
-      }
-
-      const label = str(b && b.label, 60);
-      if (!label) return { error: 'Every button needs text' + where };
-      const button = { label: label, action: action };
-      if (action === 'screen' || action === 'notify') {
-        if (!ids.has(b.target)) return { error: 'Choose where the "' + label + '" button goes' + where };
-        button.target = b.target;
-      } else if (action !== 'home') {
-        return { error: 'Choose what the "' + label + '" button does' + where };
-      }
-      if (action === 'notify') {
-        if (!personIds.has(b.person)) return { error: 'Choose who the "' + label + '" button notifies' + where };
-        button.person = b.person;
-      }
-      screen.buttons.push(button);
-    }
+    const screen = { id: s.id, name: name, type: s.type, message: str(s.message, 200), returnAfter: returnAfter };
+    const problem = s.type === 'form'
+      ? checkForm(s, screen, ids, fieldNames, where)
+      : checkButtons(s, screen, ids, personIds, where);
+    if (problem) return { error: problem };
     out.push(screen);
   }
   return { flow: { screens: out } };
+}
+
+function checkButtons(s, screen, ids, personIds, where) {
+  const buttons = Array.isArray(s.buttons) ? s.buttons : [];
+  if (buttons.length > MAX_BUTTONS) return 'A screen can have up to ' + MAX_BUTTONS + ' buttons' + where;
+  screen.buttons = [];
+  for (const b of buttons) {
+    const action = b && b.action;
+    if (action === 'people') {
+      if (screen.buttons.some(function (x) { return x.action === 'people'; })) {
+        return 'List everyone on your People list only once' + where;
+      }
+      if (!ids.has(b.target)) return 'Choose the screen to show after someone on your People list is tapped' + where;
+      screen.buttons.push({ action: action, target: b.target });
+      continue;
+    }
+
+    const label = str(b && b.label, 60);
+    if (!label) return 'Every button needs text' + where;
+    const button = { label: label, action: action };
+    if (action === 'screen' || action === 'notify') {
+      if (!ids.has(b.target)) return 'Choose where the "' + label + '" button goes' + where;
+      button.target = b.target;
+    } else if (action !== 'home') {
+      return 'Choose what the "' + label + '" button does' + where;
+    }
+    if (action === 'notify') {
+      if (!personIds.has(b.person)) return 'Choose who the "' + label + '" button notifies' + where;
+      button.person = b.person;
+    }
+    screen.buttons.push(button);
+  }
+  return null;
+}
+
+function checkForm(s, screen, ids, fieldNames, where) {
+  const fields = Array.isArray(s.fields) ? s.fields : [];
+  if (!fields.length) return 'Add at least one entry field' + where;
+  if (fields.length > MAX_FIELDS) return 'A screen can have up to ' + MAX_FIELDS + ' entry fields' + where;
+  screen.fields = [];
+  for (const f of fields) {
+    const label = str(f && f.label, 120);
+    const fieldName = str(f && f.name, 30).replace(/\s+/g, ' ');
+    if (!label) return 'Every entry field needs a prompt for the visitor' + where;
+    if (!FIELD_NAME.test(fieldName)) {
+      return 'Give the "' + label + '" field a name of letters, numbers and spaces, starting with a letter' + where;
+    }
+    const key = fieldName.toLowerCase();
+    if (fieldNames.has(key)) return 'Two entry fields are named "' + fieldName + '". Field names must be different across all screens.';
+    fieldNames.add(key);
+    screen.fields.push({ label: label, name: fieldName, required: !!(f && f.required) });
+  }
+
+  const submit = s.submit || {};
+  if (!ids.has(submit.target)) return 'Choose where the submit button goes' + where;
+  screen.submit = { label: str(submit.label, 60) || 'Continue', target: submit.target };
+  return null;
 }

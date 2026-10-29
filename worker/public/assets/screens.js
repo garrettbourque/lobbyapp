@@ -8,6 +8,7 @@
   var el = Lobby.el;
   var token = decodeURIComponent(window.location.hash.slice(1));
   var MAX_BUTTONS = 10;
+  var MAX_FIELDS = 10;
 
   var account = null;
   var kiosk = null;
@@ -112,6 +113,7 @@
     var head = el('div', { className: 'screen-head' }, [
       el('div', { className: 'screen-title' }, [
         field('Screen title', name, 'Only you see this. Buttons use it to say where they go.'),
+        el('span', { className: 'tag tag-plain', text: s.type === 'form' ? 'Information screen' : 'Button screen' }),
         i === 0 ? el('span', { className: 'tag', text: 'Start screen' }) : null
       ]),
       el('div', { className: 'row-actions' }, [
@@ -134,27 +136,80 @@
       head,
       el('div', { className: 'message-row' }, [
         field('Message at the top', textInput(s.message, 200, 'e.g. Welcome! How can we help?', function (v) { s.message = v; })),
-        field('Countdown to the start', returnAfter, 'Seconds. 0 for none.')
+        field('Auto return to start screen', returnAfter, 'Seconds. 0 for none.')
       ])
     ];
+    body = body.concat(s.type === 'form' ? formParts(s) : buttonParts(s));
+    return el('section', { className: 'card panel screen-card', 'data-screen': s.id }, body);
+  }
 
+  // Focuses the last text box in a screen's list, after adding a row to it.
+  function focusLast(s) {
+    var inputs = screensEl.querySelectorAll('[data-screen="' + s.id + '"] .button-row input[type=text]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  }
+
+  function buttonParts(s) {
     var list = el('ul', { className: 'list' });
     s.buttons.forEach(function (b, j) { list.appendChild(buttonRow(s, b, j)); });
     if (!s.buttons.length) {
-      list.appendChild(el('li', { className: 'empty', text: 'No buttons. Visitors just read the message, so add a countdown to send the kiosk back to the start.' }));
+      list.appendChild(el('li', { className: 'empty', text: 'No buttons. Visitors just read the message, so set an auto return to send the kiosk back to the start.' }));
     }
-    body.push(el('label', { text: 'Buttons' }));
-    body.push(list);
-    body.push(smallButton('Add a button', 'btn-secondary', function () {
-      s.buttons.push({ label: '', action: 'screen', target: '' });
-      markDirty();
-      render();
-      var inputs = screensEl.querySelectorAll('[data-screen="' + s.id + '"] .button-row input');
-      if (inputs.length) inputs[inputs.length - 1].focus();
-    }, s.buttons.length >= MAX_BUTTONS));
+    return [
+      el('label', { text: 'Buttons' }),
+      list,
+      smallButton('Add a button', 'btn-secondary', function () {
+        s.buttons.push({ label: '', action: 'screen', target: '' });
+        markDirty();
+        render();
+        focusLast(s);
+      }, s.buttons.length >= MAX_BUTTONS)
+    ];
+  }
 
-    var card = el('section', { className: 'card panel screen-card', 'data-screen': s.id }, body);
-    return card;
+  function formParts(s) {
+    var list = el('ul', { className: 'list' });
+    s.fields.forEach(function (f, j) { list.appendChild(fieldRow(s, f, j)); });
+    if (!s.fields.length) {
+      list.appendChild(el('li', { className: 'empty', text: 'No entry fields yet. Add the first one below.' }));
+    }
+    return [
+      el('label', { text: 'Entry fields' }),
+      list,
+      smallButton('Add an entry field', 'btn-secondary', function () {
+        s.fields.push({ label: '', name: '', required: false });
+        markDirty();
+        render();
+        focusLast(s);
+      }, s.fields.length >= MAX_FIELDS),
+      el('p', { className: 'hint', text: 'Example: the prompt "Please enter your first name" with the field name "First name". To show an answer on a later screen, put its field name in braces in a message or button, like {First name}. Answers go in the email when someone is notified and are never stored.' }),
+      el('div', { className: 'form-row', style: 'margin-top: 14px' }, [
+        field('Submit button text', textInput(s.submit.label, 60, 'Continue', function (v) { s.submit.label = v; }),
+          'Visitors can tap it once every required field is filled in.'),
+        field('Submit goes to', select(screenChoices(), s.submit.target, 'Choose a screen…', function (v) { s.submit.target = v; }))
+      ])
+    ];
+  }
+
+  function fieldRow(s, f, j) {
+    var prompt = textInput(f.label, 120, 'Prompt the visitor sees', function (v) { f.label = v; });
+    prompt.setAttribute('aria-label', 'Prompt the visitor sees');
+    var name = textInput(f.name, 30, 'Field name', function (v) { f.name = v; });
+    name.setAttribute('aria-label', 'Field name');
+    var required = el('input', { type: 'checkbox' });
+    required.checked = !!f.required;
+    required.addEventListener('change', function () { f.required = required.checked; markDirty(); });
+
+    return el('li', { className: 'button-row' }, [
+      el('div', { className: 'button-fields' }, [
+        prompt, name, el('label', { className: 'inline-check' }, [required, document.createTextNode('Required')])
+      ]),
+      el('div', { className: 'row-actions' }, [
+        smallButton('Up', 'btn-secondary', function () { move(s.fields, j, -1); }, j === 0),
+        smallButton('Down', 'btn-secondary', function () { move(s.fields, j, 1); }, j === s.fields.length - 1),
+        smallButton('Remove', 'btn-danger', function () { s.fields.splice(j, 1); markDirty(); render(); })
+      ])
+    ]);
   }
 
   function buttonRow(s, b, j) {
@@ -237,7 +292,7 @@
     kiosk = account.kiosks.find(function (k) { return k.token === token; });
     if (!kiosk) {
       pageNotice('That kiosk was not found. Go back to the dashboard and choose Edit screens on a kiosk.');
-      document.querySelectorAll('.panel, #add-screen, .save-bar, #open-kiosk').forEach(function (n) { n.hidden = true; });
+      document.querySelectorAll('.panel, .add-screens, .save-bar, #open-kiosk').forEach(function (n) { n.hidden = true; });
       return;
     }
     flow = clone(kiosk.flow);
@@ -252,13 +307,24 @@
     render();
   }
 
-  document.getElementById('add-screen').addEventListener('click', function () {
-    var s = { id: newId(), name: '', message: '', returnAfter: 0, buttons: [] };
+  function addScreen(s) {
     flow.screens.push(s);
     markDirty();
     render();
     screensEl.lastChild.scrollIntoView({ behavior: 'smooth', block: 'start' });
     screensEl.lastChild.querySelector('input').focus({ preventScroll: true });
+  }
+
+  document.getElementById('add-buttons-screen').addEventListener('click', function () {
+    addScreen({ id: newId(), name: '', type: 'buttons', message: '', returnAfter: 0, buttons: [] });
+  });
+
+  document.getElementById('add-form-screen').addEventListener('click', function () {
+    addScreen({
+      id: newId(), name: '', type: 'form', message: '', returnAfter: 0,
+      fields: [{ label: '', name: '', required: true }],
+      submit: { label: 'Continue', target: '' }
+    });
   });
 
   document.getElementById('save').addEventListener('click', function () {

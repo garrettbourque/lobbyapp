@@ -242,8 +242,11 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible {
 .screen-title { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 14rem; }
 .screen-title .field { flex: 1; margin: 0; }
 .screen-title input { font-weight: 600; font-size: 1.05rem; }
+.inline-check { display: flex; align-items: center; gap: 6px; font-weight: 400; margin: 0; white-space: nowrap; }
+.add-screens { display: flex; gap: 8px; flex-wrap: wrap; }
 .tag { font-size: 0.8rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); white-space: nowrap; }
-.message-row { display: grid; gap: 12px; grid-template-columns: 1fr 11rem; }
+.tag-plain { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+.message-row { display: grid; gap: 12px; grid-template-columns: 1fr 14rem; }
 @media (max-width: 560px) { .message-row { grid-template-columns: 1fr; } }
 .button-row .button-fields .muted { align-self: center; font-size: 0.9rem; }
 .button-row .button-fields { display: grid; gap: 6px; flex: 1; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }

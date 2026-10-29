@@ -128,3 +128,52 @@ body {
 .btn-secondary:active {
   background: #1f2937;
 }
+
+.btn:disabled {
+  background: #9ca3af;
+  cursor: default;
+}
+
+.fields {
+  width: 100%;
+  max-width: 22rem;
+  text-align: left;
+}
+
+.fields:empty {
+  display: none;
+}
+
+.fields .field {
+  margin-bottom: 1.25rem;
+}
+
+.field-label {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+}
+
+.required {
+  color: #6b7280;
+  font-weight: 400;
+  font-size: 0.9rem;
+}
+
+/* 1rem here is 20px, so iOS doesn't zoom in when the box is tapped. */
+.kiosk-input {
+  width: 100%;
+  font: inherit;
+  font-size: 1.1rem;
+  padding: 0.8rem 1rem;
+  border: 2px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #1a1a1a;
+}
+
+.kiosk-input:focus {
+  outline: none;
+  border-color: #2563eb;
+}

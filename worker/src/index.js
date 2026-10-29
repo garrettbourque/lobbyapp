@@ -2,7 +2,7 @@
 //
 // Kiosk (token in the link, no sign-in):
 //   GET  /api/kiosk/:token            facility name, screens (flow) and clinician list (no emails)
-//   POST /api/kiosk/:token/checkin    { clinicianId } -> emails that clinician
+//   POST /api/kiosk/:token/checkin    { clinicianId, answers } -> emails that clinician (answers are never stored)
 // Accounts:
 //   POST /api/signup | /api/signin | /api/signout | /api/forgot | /api/reset
 // Signed in (facility owner):
