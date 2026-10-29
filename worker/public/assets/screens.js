@@ -321,7 +321,7 @@
   function buttonRow(s, b, j, wide, cols) {
     var action = select([
       { value: 'screen', text: 'Go to a screen' },
-      { value: 'notify', text: 'Notify a person' },
+      { value: 'notify', text: 'E-mail' },
       { value: 'home', text: 'Back to start' },
       { value: 'people', text: 'List all people' }
     ], b.action, 'Choose what it does…', function (v) { b.action = v; });
