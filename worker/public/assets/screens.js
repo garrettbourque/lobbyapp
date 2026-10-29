@@ -182,7 +182,7 @@
         render();
         focusLast(s);
       }, s.fields.length >= MAX_FIELDS),
-      el('p', { className: 'hint', text: 'Example: the prompt "Please enter your first name" with the field name "First name". To show an answer on a later screen, put its field name in braces in a message or button, like {First name}. Answers go in the email when someone is notified and are never stored.' }),
+      el('p', { className: 'hint', text: 'Example: the prompt "Please enter your first name" with the field name "First name". To show an answer on a later screen, put its field name in braces in a message or button, like {First name}. {Person} shows the name of whoever the visitor notified. Answers go in the email when someone is notified and are never stored.' }),
       el('div', { className: 'form-row', style: 'margin-top: 14px' }, [
         field('Submit button text', textInput(s.submit.label, 60, 'Continue', function (v) { s.submit.label = v; }),
           'Visitors can tap it once every required field is filled in.'),

@@ -18,6 +18,7 @@
 //     'form' screens:
 //     fields: [ { label, name, required } ]   label is the prompt the visitor sees; name is
 //                                             how messages refer to the answer: {First name}
+//                                             ({Person} is taken: it shows who was notified)
 //     submit: { label, target }               enabled once every required field is filled in
 // } ] }
 // The first screen is where the kiosk starts. The kiosk adds a Back button to the others.
@@ -172,6 +173,7 @@ function checkForm(s, screen, ids, fieldNames, where) {
       return 'Give the "' + label + '" field a name of letters, numbers and spaces, starting with a letter' + where;
     }
     const key = fieldName.toLowerCase();
+    if (key === 'person') return 'Choose another name for the "' + label + '" field. {Person} is kept for the name of whoever was notified.';
     if (fieldNames.has(key)) return 'Two entry fields are named "' + fieldName + '". Field names must be different across all screens.';
     fieldNames.add(key);
     screen.fields.push({ label: label, name: fieldName, required: !!(f && f.required) });

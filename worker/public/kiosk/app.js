@@ -19,6 +19,8 @@
   // What this visitor typed on information screens, by field name. Kept only on the iPad,
   // and only until the kiosk returns to the start, so later screens can show it.
   let answers = {};
+  // Name of whoever this visitor notified, for {Person}. Cleared with the answers.
+  let person = '';
   let timer = null;
 
   function screens() {
@@ -34,11 +36,12 @@
     return names;
   }
 
-  // Swaps {Field name} in a message or button for what the visitor entered. Braces that
-  // don't name a field are left as typed.
+  // Swaps {Field name} in a message or button for what the visitor entered, and {Person}
+  // for whoever they notified. Braces that name neither are left as typed.
   function fill(text) {
     const names = fieldNames();
     return String(text || '').replace(/\{([^{}]+)\}/g, function (match, name) {
+      if (name.trim().toLowerCase() === 'person') return person;
       const key = names[name.trim().toLowerCase()];
       return key ? (answers[key] || '') : match;
     });
@@ -112,6 +115,7 @@
     if (isHome()) {
       trail = [];
       answers = {};
+      person = '';
     }
     backBtn.hidden = !trail.length;
 
@@ -206,6 +210,8 @@
 
   function notify(personId, then) {
     const sent = answers;
+    const c = data.clinicians.find(function (x) { return x.id === personId; });
+    person = c ? c.name : '';
     trail = [];
     show(then);
     fetch(CONFIG.apiBaseUrl + '/api/kiosk/' + encodeURIComponent(kioskToken) + '/checkin', {
