@@ -56,6 +56,7 @@
     document.getElementById('business-title').textContent = state.facility.name;
     renderClinicians();
     renderKiosks();
+    renderTemplates();
     renderFacility();
     renderCheckins();
   }
@@ -180,6 +181,126 @@
       el('div', { className: 'row-actions' }, [screens, remove])
     ]);
   }
+
+  // Field names from every kiosk's screens, for the tag hint.
+  function fieldNames() {
+    var names = [];
+    state.kiosks.forEach(function (k) {
+      k.flow.screens.forEach(function (s) {
+        (s.fields || []).forEach(function (f) {
+          if (names.indexOf(f.name) === -1) names.push(f.name);
+        });
+      });
+    });
+    return names;
+  }
+
+  function renderTemplates() {
+    var names = fieldNames();
+    document.getElementById('field-names').textContent = names.length
+      ? 'Field names on your screens: ' + names.map(function (n) { return '{' + n + '}'; }).join(', ') + '.'
+      : 'Your screens don\'t ask for any information yet. Add an information screen in Edit screens to collect some.';
+
+    document.getElementById('add-template').hidden = false;
+    var list = document.getElementById('templates');
+    list.innerHTML = '';
+    list.appendChild(el('li', {}, [
+      el('div', { className: 'who' }, [
+        el('strong', { text: 'Standard (built in)' }),
+        el('span', { text: 'Subject: Your client has arrived ({Time}). Says who checked in and lists anything they entered.' })
+      ])
+    ]));
+    state.templates.forEach(function (t) {
+      list.appendChild(templateRow(t));
+    });
+  }
+
+  function templateRow(t) {
+    var edit = el('button', { type: 'button', className: 'btn btn-secondary btn-small', text: 'Edit' });
+    var remove = el('button', { type: 'button', className: 'btn btn-danger btn-small', text: 'Delete' });
+    var row = el('li', {}, [
+      el('div', { className: 'who' }, [
+        el('strong', { text: t.name }),
+        el('span', { text: 'Subject: ' + t.subject })
+      ]),
+      el('div', { className: 'row-actions' }, [edit, remove])
+    ]);
+
+    edit.addEventListener('click', function () {
+      row.replaceWith(templateForm(t, function (form) { form.replaceWith(templateRow(t)); }));
+    });
+    remove.addEventListener('click', function () {
+      if (!window.confirm('Delete the "' + t.name + '" template?')) return;
+      remove.disabled = true;
+      api('DELETE', '/api/templates/' + encodeURIComponent(t.id)).then(function (r) {
+        if (!r.data.ok) {
+          remove.disabled = false;
+          pageNotice(r.data.error);
+          document.getElementById('page-notice').scrollIntoView({ behavior: 'smooth' });
+          return;
+        }
+        load();
+      });
+    });
+    return row;
+  }
+
+  // Edits template t, or adds a new one when t is null. onCancel gets the row to replace.
+  function templateForm(t, onCancel) {
+    var name = el('input', { type: 'text', maxlength: '60', placeholder: 'e.g. New client arrived' });
+    var subject = el('input', { type: 'text', maxlength: '150', placeholder: 'e.g. {First name} is here to see you' });
+    var body = el('textarea', { maxlength: '2000', placeholder: 'Hi {Person},\n\n{First name} {Last name} checked in at {Time}.\n\n{All answers}' });
+    if (t) {
+      name.value = t.name;
+      subject.value = t.subject;
+      body.value = t.body;
+    }
+    var field = function (text, control, hint) {
+      control.id = 't' + Math.random().toString(36).slice(2);
+      return el('div', { className: 'field' }, [el('label', { for: control.id, text: text }), control,
+        hint ? el('p', { className: 'hint', text: hint }) : null]);
+    };
+    var save = el('button', { type: 'submit', className: 'btn btn-small', text: t ? 'Save' : 'Add template' });
+    var cancel = el('button', { type: 'button', className: 'btn btn-secondary btn-small', text: 'Cancel' });
+    var notice = el('div', { className: 'notice' });
+    var form = el('form', { className: 'template-form', novalidate: '' }, [
+      el('div', { className: 'form-row' }, [
+        field('Template name', name, 'Only you see this. You pick it by name in Edit screens.'),
+        field('Subject line', subject)
+      ]),
+      field('Email text', body),
+      notice,
+      el('div', { className: 'row-actions' }, [save, cancel])
+    ]);
+    var row = el('li', {}, [form]);
+
+    cancel.addEventListener('click', function () { onCancel(row); });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      save.disabled = true;
+      api(t ? 'PUT' : 'POST', '/api/templates' + (t ? '/' + encodeURIComponent(t.id) : ''), {
+        name: name.value, subject: subject.value, body: body.value
+      }).then(function (r) {
+        save.disabled = false;
+        if (!r.data.ok) {
+          Lobby.showNotice(notice, r.data.error);
+          return;
+        }
+        load();
+      });
+    });
+    setTimeout(function () { name.focus(); }, 0);
+    return row;
+  }
+
+  document.getElementById('add-template').addEventListener('click', function () {
+    var button = this;
+    button.hidden = true;
+    document.getElementById('templates').appendChild(templateForm(null, function (row) {
+      row.remove();
+      button.hidden = false;
+    }));
+  });
 
   function renderFacility() {
     var f = state.facility;

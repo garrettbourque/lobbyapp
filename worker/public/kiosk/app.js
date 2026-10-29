@@ -17,7 +17,8 @@
   // notified, since going back then could send a second notice.
   let trail = [];
   // What this visitor typed on information screens, by field name. Kept only on the iPad,
-  // and only until the kiosk returns to the start, so later screens can show it.
+  // and only until the kiosk returns to the start, so later screens can show it. Every
+  // field shown gets an entry, even if left blank, so the email can tell blank from never asked.
   let answers = {};
   // Name of whoever this visitor notified, for {Person}. Cleared with the answers.
   let person = '';
@@ -149,7 +150,8 @@
       input.className = 'kiosk-input';
       input.maxLength = 200;
       input.autocomplete = 'off';
-      input.value = answers[f.name] || '';
+      answers[f.name] = answers[f.name] || '';
+      input.value = answers[f.name];
       input.addEventListener('input', function () {
         answers[f.name] = input.value;
         update();
@@ -193,10 +195,10 @@
         addButton(fill(b.label), 'btn btn-primary', function () { go(b.target); });
       } else if (b.action === 'notify' && people.has(b.person)) {
         // A button for someone since removed from the business is hidden.
-        addButton(fill(b.label), 'btn btn-primary', function () { notify(b.person, b.target); });
+        addButton(fill(b.label), 'btn btn-primary', function () { notify(b.person, b.target, b.template); });
       } else if (b.action === 'people') {
         data.clinicians.forEach(function (c) {
-          addButton(c.name, 'btn btn-primary', function () { notify(c.id, b.target); });
+          addButton(c.name, 'btn btn-primary', function () { notify(c.id, b.target, b.template); });
         });
         if (!data.clinicians.length) {
           const msg = document.createElement('p');
@@ -208,7 +210,7 @@
     });
   }
 
-  function notify(personId, then) {
+  function notify(personId, then, template) {
     const sent = answers;
     const c = data.clinicians.find(function (x) { return x.id === personId; });
     person = c ? c.name : '';
@@ -220,7 +222,7 @@
       cache: 'no-store',
       keepalive: true,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clinicianId: personId, answers: sent })
+      body: JSON.stringify({ clinicianId: personId, answers: sent, template: template || '' })
     }).catch(function () {});
   }
 

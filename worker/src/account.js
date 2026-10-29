@@ -7,6 +7,7 @@ import { kioskFlow, validateFlow } from './flow.js';
 
 const MAX_CLINICIANS = 50;
 const MAX_KIOSKS = 10;
+const MAX_TEMPLATES = 20;
 
 async function ownedFacility(env, user) {
   return env.DB.prepare('SELECT * FROM facilities WHERE owner_user_id = ?').bind(user.id).first();
@@ -20,9 +21,10 @@ export async function getAccount(env, user, origin) {
   const f = await ownedFacility(env, user);
   if (!f) return json({ ok: true, user: { email: user.email }, facility: null });
 
-  const [clinicians, kiosks, checkins] = await env.DB.batch([
+  const [clinicians, kiosks, templates, checkins] = await env.DB.batch([
     env.DB.prepare('SELECT id, name, email, sort_order FROM clinicians WHERE facility_id = ? AND active = 1 ORDER BY sort_order, name').bind(f.id),
     env.DB.prepare('SELECT token, label, welcome_message, flow, created_at FROM kiosks WHERE facility_id = ? ORDER BY created_at').bind(f.id),
+    env.DB.prepare('SELECT id, name, subject, body FROM email_templates WHERE facility_id = ? ORDER BY name').bind(f.id),
     env.DB.prepare(
       'SELECT c.name, k.status, k.created_at FROM checkins k JOIN clinicians c ON c.id = k.clinician_id ' +
       'WHERE k.facility_id = ? ORDER BY k.id DESC LIMIT 25'
@@ -48,6 +50,7 @@ export async function getAccount(env, user, origin) {
         link: kioskLink(origin, k.token), createdAt: k.created_at
       };
     }),
+    templates: templates.results,
     checkins: checkins.results.map(function (c) {
       return { clinician: c.name, status: c.status, at: c.created_at };
     })
@@ -136,8 +139,12 @@ export async function updateKiosk(request, env, user, token) {
   // flow: null goes back to the default screens.
   let flow = null;
   if (body.flow !== null) {
-    const { results } = await env.DB.prepare('SELECT id FROM clinicians WHERE facility_id = ? AND active = 1').bind(f.id).all();
-    const checked = validateFlow(body.flow, new Set(results.map(function (c) { return c.id; })));
+    const [people, templates] = await env.DB.batch([
+      env.DB.prepare('SELECT id FROM clinicians WHERE facility_id = ? AND active = 1').bind(f.id),
+      env.DB.prepare('SELECT id FROM email_templates WHERE facility_id = ?').bind(f.id)
+    ]);
+    const ids = function (r) { return new Set(r.results.map(function (row) { return row.id; })); };
+    const checked = validateFlow(body.flow, ids(people), ids(templates));
     if (checked.error) return fail(checked.error);
     flow = JSON.stringify(checked.flow);
   }
@@ -153,6 +160,58 @@ export async function removeKiosk(env, user, token) {
   const f = await ownedFacility(env, user);
   if (!f) return fail('No business on this account.', 404);
   const result = await env.DB.prepare('DELETE FROM kiosks WHERE token = ? AND facility_id = ?').bind(token, f.id).run();
+  if (!result.meta.changes) return fail('Not found.', 404);
+  return json({ ok: true });
+}
+
+function readTemplate(body) {
+  const t = { name: str(body.name, 60), subject: str(body.subject, 150), body: str(body.body, 2000) };
+  if (!t.name) return { error: 'Give the template a name.' };
+  if (!t.subject) return { error: 'Enter a subject line.' };
+  if (!t.body) return { error: 'Enter the email text.' };
+  return t;
+}
+
+export async function addTemplate(request, env, user) {
+  const f = await ownedFacility(env, user);
+  if (!f) return fail('No business on this account.', 404);
+  const t = readTemplate(await readJson(request));
+  if (t.error) return fail(t.error);
+  const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM email_templates WHERE facility_id = ?').bind(f.id).first();
+  if (count.n >= MAX_TEMPLATES) return fail('You can have up to ' + MAX_TEMPLATES + ' email templates.');
+
+  const id = randomId(6);
+  await env.DB.prepare('INSERT INTO email_templates (id, facility_id, name, subject, body) VALUES (?, ?, ?, ?, ?)')
+    .bind(id, f.id, t.name, t.subject, t.body).run();
+  return json({ ok: true, id: id });
+}
+
+export async function updateTemplate(request, env, user, id) {
+  const f = await ownedFacility(env, user);
+  if (!f) return fail('No business on this account.', 404);
+  const t = readTemplate(await readJson(request));
+  if (t.error) return fail(t.error);
+  const result = await env.DB.prepare('UPDATE email_templates SET name = ?, subject = ?, body = ? WHERE id = ? AND facility_id = ?')
+    .bind(t.name, t.subject, t.body, id, f.id).run();
+  if (!result.meta.changes) return fail('Not found.', 404);
+  return json({ ok: true });
+}
+
+// A template still chosen on a kiosk button can't be deleted; the owner is told which kiosks use it.
+export async function removeTemplate(env, user, id) {
+  const f = await ownedFacility(env, user);
+  if (!f) return fail('No business on this account.', 404);
+  const { results } = await env.DB.prepare('SELECT label, flow FROM kiosks WHERE facility_id = ? AND flow IS NOT NULL ORDER BY created_at').bind(f.id).all();
+  const usedOn = results.filter(function (k) {
+    return kioskFlow(k, f.office_phone).screens.some(function (s) {
+      return (s.buttons || []).some(function (b) { return b.template === id; });
+    });
+  }).map(function (k) { return '"' + (k.label || 'Kiosk') + '"'; });
+  if (usedOn.length) {
+    return fail('This template is still used on the ' + usedOn.join(' and ') + ' kiosk' + (usedOn.length > 1 ? 's' : '') +
+      '. Choose another email for those buttons in Edit screens, then delete it.');
+  }
+  const result = await env.DB.prepare('DELETE FROM email_templates WHERE id = ? AND facility_id = ?').bind(id, f.id).run();
   if (!result.meta.changes) return fail('Not found.', 404);
   return json({ ok: true });
 }

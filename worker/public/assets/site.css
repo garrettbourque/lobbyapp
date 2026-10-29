@@ -249,7 +249,10 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible {
 .message-row { display: grid; gap: 12px; grid-template-columns: 1fr 14rem; }
 @media (max-width: 560px) { .message-row { grid-template-columns: 1fr; } }
 .button-row .button-fields .muted { align-self: center; font-size: 0.9rem; }
+.button-row .notice { flex-basis: 100%; margin: 6px 0 0; }
 .button-row .button-fields { display: grid; gap: 6px; flex: 1; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
+.list .template-form { display: grid; gap: 4px; width: 100%; grid-template-columns: 1fr; }
+.template-form textarea { min-height: 11rem; }
 .save-bar { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); padding: 12px 0; margin-top: 20px; }
 .save-bar .wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .save-bar .notice { margin: 0; flex-basis: 100%; }

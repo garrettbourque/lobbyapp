@@ -2,7 +2,7 @@
 //
 // Kiosk (token in the link, no sign-in):
 //   GET  /api/kiosk/:token            facility name, screens (flow) and clinician list (no emails)
-//   POST /api/kiosk/:token/checkin    { clinicianId, answers } -> emails that clinician (answers are never stored)
+//   POST /api/kiosk/:token/checkin    { clinicianId, answers, template } -> emails that clinician (answers are never stored)
 // Accounts:
 //   POST /api/signup | /api/signin | /api/signout | /api/forgot | /api/reset
 // Signed in (facility owner):
@@ -10,6 +10,7 @@
 //   PUT  /api/facility
 //   POST /api/clinicians, PUT|DELETE /api/clinicians/:id
 //   POST /api/kiosks, PUT|DELETE /api/kiosks/:token (PUT takes { label, flow })
+//   POST /api/templates, PUT|DELETE /api/templates/:id ({ name, subject, body })
 // Anyone:
 //   POST /api/contact
 //
@@ -18,7 +19,8 @@
 import { json, fail } from './util.js';
 import { getUser, signup, signin, signout, forgotPassword, resetPassword } from './auth.js';
 import { findKiosk, getKiosk, checkin } from './kiosk.js';
-import { getAccount, updateFacility, addClinician, updateClinician, removeClinician, addKiosk, updateKiosk, removeKiosk, contact } from './account.js';
+import { getAccount, updateFacility, addClinician, updateClinician, removeClinician, addKiosk, updateKiosk, removeKiosk,
+  addTemplate, updateTemplate, removeTemplate, contact } from './account.js';
 
 export default {
   async fetch(request, env) {
@@ -70,6 +72,7 @@ async function handleApi(request, env, url) {
   if (method === 'PUT' && path === '/api/facility') return updateFacility(request, env, user);
   if (method === 'POST' && path === '/api/clinicians') return addClinician(request, env, user);
   if (method === 'POST' && path === '/api/kiosks') return addKiosk(request, env, user);
+  if (method === 'POST' && path === '/api/templates') return addTemplate(request, env, user);
 
   const clinicianMatch = path.match(/^\/api\/clinicians\/([A-Za-z0-9_-]{1,32})$/);
   if (clinicianMatch && method === 'PUT') return updateClinician(request, env, user, clinicianMatch[1]);
@@ -78,6 +81,10 @@ async function handleApi(request, env, url) {
   const kioskOwned = path.match(/^\/api\/kiosks\/([A-Za-z0-9_-]{16,64})$/);
   if (kioskOwned && method === 'PUT') return updateKiosk(request, env, user, kioskOwned[1]);
   if (kioskOwned && method === 'DELETE') return removeKiosk(env, user, kioskOwned[1]);
+
+  const templateMatch = path.match(/^\/api\/templates\/([A-Za-z0-9_-]{1,32})$/);
+  if (templateMatch && method === 'PUT') return updateTemplate(request, env, user, templateMatch[1]);
+  if (templateMatch && method === 'DELETE') return removeTemplate(env, user, templateMatch[1]);
 
   return fail('Not found', 404);
 }

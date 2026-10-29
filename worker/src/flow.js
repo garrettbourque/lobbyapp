@@ -8,17 +8,19 @@
 //     returnAfter,           seconds before going back to the first screen (0 = only after a minute idle)
 //
 //     'buttons' screens:
-//     buttons: [ { label, action, target, person } ]
+//     buttons: [ { label, action, target, person, template } ]
 //       action 'screen' -> go to target
 //       action 'notify' -> email person (a clinician id), then go to target
 //       action 'people' -> one button per person on the People list (no label); tapping
 //                          emails that person, then goes to target
+//       template        -> on 'notify' and 'people': the email_templates id to send;
+//                          absent means the standard notice
 //       action 'home'   -> back to the first screen
 //
 //     'form' screens:
 //     fields: [ { label, name, required } ]   label is the prompt the visitor sees; name is
 //                                             how messages refer to the answer: {First name}
-//                                             ({Person} is taken: it shows who was notified)
+//                                             (no field may use a name from TAGS below)
 //     submit: { label, target }               enabled once every required field is filled in
 // } ] }
 // The first screen is where the kiosk starts. The kiosk adds a Back button to the others.
@@ -35,6 +37,9 @@ const MAX_RETURN_AFTER = 120;
 const ID = /^[A-Za-z0-9]{1,12}$/;
 // Field names appear inside {braces} in messages, so keep them to plain words.
 const FIELD_NAME = /^[A-Za-z][A-Za-z0-9 ]{0,29}$/;
+// Tags that are always filled in. {Person} (who was notified) also works on kiosk
+// screens; the others only in email templates.
+export const TAGS = ['Person', 'Time', 'Kiosk', 'All answers'];
 
 export function defaultFlow(welcomeMessage, officePhone) {
   return {
@@ -93,9 +98,10 @@ export function kioskFlow(row, officePhone) {
   return defaultFlow(row.welcome_message, officePhone);
 }
 
-// Checks a flow sent from the editor. personIds are the business's active clinicians.
+// Checks a flow sent from the editor. personIds are the business's active clinicians;
+// templateIds are its email templates.
 // Returns { flow } with only known fields kept, or { error } to show the owner.
-export function validateFlow(input, personIds) {
+export function validateFlow(input, personIds, templateIds) {
   const screens = input && Array.isArray(input.screens) ? upgrade(input).screens : null;
   if (!screens || !screens.length) return { error: 'Add at least one screen.' };
   if (screens.length > MAX_SCREENS) return { error: 'A kiosk can have up to ' + MAX_SCREENS + ' screens.' };
@@ -120,14 +126,14 @@ export function validateFlow(input, personIds) {
     const screen = { id: s.id, name: name, type: s.type, message: str(s.message, 200), returnAfter: returnAfter };
     const problem = s.type === 'form'
       ? checkForm(s, screen, ids, fieldNames, where)
-      : checkButtons(s, screen, ids, personIds, where);
+      : checkButtons(s, screen, ids, personIds, templateIds, where);
     if (problem) return { error: problem };
     out.push(screen);
   }
   return { flow: { screens: out } };
 }
 
-function checkButtons(s, screen, ids, personIds, where) {
+function checkButtons(s, screen, ids, personIds, templateIds, where) {
   const buttons = Array.isArray(s.buttons) ? s.buttons : [];
   if (buttons.length > MAX_BUTTONS) return 'A screen can have up to ' + MAX_BUTTONS + ' buttons' + where;
   screen.buttons = [];
@@ -138,7 +144,9 @@ function checkButtons(s, screen, ids, personIds, where) {
         return 'List everyone on your People list only once' + where;
       }
       if (!ids.has(b.target)) return 'Choose the screen to show after someone on your People list is tapped' + where;
-      screen.buttons.push({ action: action, target: b.target });
+      const people = { action: action, target: b.target };
+      if (!readTemplate(b, people, templateIds)) return 'Choose the email for your People list' + where;
+      screen.buttons.push(people);
       continue;
     }
 
@@ -154,10 +162,20 @@ function checkButtons(s, screen, ids, personIds, where) {
     if (action === 'notify') {
       if (!personIds.has(b.person)) return 'Choose who the "' + label + '" button notifies' + where;
       button.person = b.person;
+      if (!readTemplate(b, button, templateIds)) return 'Choose the email the "' + label + '" button sends' + where;
     }
     screen.buttons.push(button);
   }
   return null;
+}
+
+// Copies a button's email template onto button. False if it names one that no longer exists.
+function readTemplate(b, button, templateIds) {
+  const template = str(b.template, 32);
+  if (!template) return true;
+  if (!templateIds.has(template)) return false;
+  button.template = template;
+  return true;
 }
 
 function checkForm(s, screen, ids, fieldNames, where) {
@@ -173,7 +191,9 @@ function checkForm(s, screen, ids, fieldNames, where) {
       return 'Give the "' + label + '" field a name of letters, numbers and spaces, starting with a letter' + where;
     }
     const key = fieldName.toLowerCase();
-    if (key === 'person') return 'Choose another name for the "' + label + '" field. {Person} is kept for the name of whoever was notified.';
+    if (TAGS.some(function (t) { return t.toLowerCase() === key; })) {
+      return 'Choose another name for the "' + label + '" field. ' + TAGS.slice(0, -1).join(', ') + ' and ' + TAGS[TAGS.length - 1] + ' are already used as tags.';
+    }
     if (fieldNames.has(key)) return 'Two entry fields are named "' + fieldName + '". Field names must be different across all screens.';
     fieldNames.add(key);
     screen.fields.push({ label: label, name: fieldName, required: !!(f && f.required) });

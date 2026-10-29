@@ -9,11 +9,15 @@
   var token = decodeURIComponent(window.location.hash.slice(1));
   var MAX_BUTTONS = 10;
   var MAX_FIELDS = 10;
+  // Tags every email can use; see worker/src/flow.js.
+  var TAGS = ['person', 'time', 'kiosk', 'all answers'];
 
   var account = null;
   var kiosk = null;
   var flow = null;
   var dirty = false;
+  // Red notices under buttons whose email uses tags that won't be filled in: [{ node, screen, button }].
+  var warnings = [];
 
   var screensEl = document.getElementById('screens');
   var labelInput = document.getElementById('kiosk-label');
@@ -76,6 +80,70 @@
     return account.clinicians.map(function (c) { return { value: c.id, text: c.name }; });
   }
 
+  function templateChoices() {
+    return [{ value: '', text: 'Sends the Standard email' }].concat(account.templates.map(function (t) {
+      return { value: t.id, text: 'Sends "' + t.name + '"' };
+    }));
+  }
+
+  function tagKey(name) {
+    return name.trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+
+  // For each screen, the field names a visitor has always filled in by the time they get
+  // there, whichever way they came. The kiosk forgets answers at the start screen, and a
+  // screen nobody can reach gets none.
+  function collectedOnArrival() {
+    var byId = {};
+    flow.screens.forEach(function (s) { byId[s.id] = s; });
+    var start = flow.screens[0].id;
+    var arrival = {};
+    arrival[start] = [];
+    var changed = true;
+    while (changed) {
+      changed = false;
+      flow.screens.forEach(function (s) {
+        if (!arrival[s.id]) return;
+        var known = arrival[s.id].concat((s.fields || []).map(function (f) { return tagKey(f.name); }));
+        var next = s.type === 'form'
+          ? [s.submit.target]
+          : s.buttons.map(function (b) { return b.action === 'home' ? '' : b.target; });
+        next.forEach(function (id) {
+          if (!byId[id] || id === start) return;
+          var before = arrival[id];
+          var after = before ? before.filter(function (k) { return known.indexOf(k) !== -1; }) : known;
+          if (!before || after.length !== before.length) {
+            arrival[id] = after;
+            changed = true;
+          }
+        });
+      });
+    }
+    return arrival;
+  }
+
+  function refreshWarnings() {
+    var arrival = collectedOnArrival();
+    warnings.forEach(function (w) {
+      var t = account.templates.find(function (x) { return x.id === w.button.template; });
+      var known = arrival[w.screen.id] || [];
+      var missing = [];
+      if (t) {
+        (t.subject + ' ' + t.body).replace(/\{([^{}]+)\}/g, function (match, name) {
+          var key = tagKey(name);
+          if (TAGS.indexOf(key) === -1 && known.indexOf(key) === -1 && missing.indexOf(match) === -1) missing.push(match);
+          return match;
+        });
+      }
+      w.node.hidden = !missing.length;
+      w.node.textContent = missing.length
+        ? 'The "' + t.name + '" email uses ' + missing.join(', ') + ', which ' + (missing.length > 1 ? 'aren\'t' : 'isn\'t') +
+          ' always asked for before this button. Anything missing shows in the email as typed. ' +
+          'Fix it by collecting it on an earlier screen or changing the template.'
+        : '';
+    });
+  }
+
   function field(labelText, control, hint) {
     var id = 'f' + newId();
     control.id = id;
@@ -100,9 +168,11 @@
 
   function render() {
     screensEl.innerHTML = '';
+    warnings = [];
     flow.screens.forEach(function (s, i) {
       screensEl.appendChild(screenCard(s, i));
     });
+    refreshWarnings();
   }
 
   function screenCard(s, i) {
@@ -182,7 +252,7 @@
         render();
         focusLast(s);
       }, s.fields.length >= MAX_FIELDS),
-      el('p', { className: 'hint', text: 'Example: the prompt "Please enter your first name" with the field name "First name". To show an answer on a later screen, put its field name in braces in a message or button, like {First name}. {Person} shows the name of whoever the visitor notified. Answers go in the email when someone is notified and are never stored.' }),
+      el('p', { className: 'hint', text: 'Example: the prompt "Please enter your first name" with the field name "First name". To show an answer on a later screen, put its field name in braces in a message or button, like {First name}. {Person} shows the name of whoever the visitor notified. Email templates on the dashboard use the same tags. Answers go only in the email and are never stored.' }),
       el('div', { className: 'form-row', style: 'margin-top: 14px' }, [
         field('Submit button text', textInput(s.submit.label, 60, 'Continue', function (v) { s.submit.label = v; }),
           'Visitors can tap it once every required field is filled in.'),
@@ -194,7 +264,7 @@
   function fieldRow(s, f, j) {
     var prompt = textInput(f.label, 120, 'Prompt the visitor sees', function (v) { f.label = v; });
     prompt.setAttribute('aria-label', 'Prompt the visitor sees');
-    var name = textInput(f.name, 30, 'Field name', function (v) { f.name = v; });
+    var name = textInput(f.name, 30, 'Field name', function (v) { f.name = v; refreshWarnings(); });
     name.setAttribute('aria-label', 'Field name');
     var required = el('input', { type: 'checkbox' });
     required.checked = !!f.required;
@@ -238,6 +308,17 @@
       target.setAttribute('aria-label', then ? 'Screen to show after notifying' : 'Screen to go to');
       parts.push(target);
     }
+    var warning = null;
+    if (b.action === 'notify' || b.action === 'people') {
+      var template = select(templateChoices(), b.template || '', 'Choose an email…', function (v) {
+        if (v) b.template = v;
+        else delete b.template;
+      });
+      template.setAttribute('aria-label', 'Email to send');
+      parts.push(template);
+      warning = el('div', { className: 'notice notice-error' });
+      warnings.push({ node: warning, screen: s, button: b });
+    }
 
     return el('li', { className: 'button-row' }, [
       el('div', { className: 'button-fields' }, parts),
@@ -245,7 +326,8 @@
         smallButton('Up', 'btn-secondary', function () { move(s.buttons, j, -1); }, j === 0),
         smallButton('Down', 'btn-secondary', function () { move(s.buttons, j, 1); }, j === s.buttons.length - 1),
         smallButton('Remove', 'btn-danger', function () { s.buttons.splice(j, 1); markDirty(); render(); })
-      ])
+      ]),
+      warning
     ]);
   }
 

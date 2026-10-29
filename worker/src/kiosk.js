@@ -7,7 +7,7 @@ import { kioskFlow } from './flow.js';
 
 export async function findKiosk(env, token) {
   return env.DB.prepare(
-    'SELECT k.token, k.welcome_message, k.flow, f.id AS facility_id, f.name, f.admin_email, f.office_phone, f.timezone ' +
+    'SELECT k.token, k.label, k.welcome_message, k.flow, f.id AS facility_id, f.name, f.admin_email, f.office_phone, f.timezone ' +
     'FROM kiosks k JOIN facilities f ON f.id = k.facility_id WHERE k.token = ?'
   ).bind(token).first();
 }
@@ -33,14 +33,34 @@ export async function checkin(request, env, kiosk, headers) {
     return json({ ok: false, error: 'Unknown clinician' }, 400, headers);
   }
 
+  const templateId = str(body.template, 32);
+  const template = templateId ? await env.DB.prepare(
+    'SELECT subject, body FROM email_templates WHERE id = ? AND facility_id = ?'
+  ).bind(templateId, kiosk.facility_id).first() : null;
+
+  const time = formatTime(kiosk.timezone);
+  const answers = readAnswers(body.answers, kioskFlow(kiosk, kiosk.office_phone));
+  const lines = answerLines(answers);
+  const entered = lines ? 'They entered:\n' + lines + '\n\n' : '';
+  // Without a template, the standard notice.
+  const email = template ? fillTemplate(template, clinician, kiosk, time, answers) : {
+    subject: 'Your client has arrived (' + time + ')',
+    text: 'Hi ' + clinician.name + ',\n\n' +
+      'A client checked in at the lobby kiosk at ' + time + ' and is waiting for you.\n\n' +
+      entered +
+      '- Lobby kiosk'
+  };
+
   const status = await notifyClinician(env, {
     limitKey: kiosk.facility_id + ':' + clinician.id,
     alertKey: kiosk.facility_id,
     name: clinician.name,
     email: clinician.email,
     adminEmail: kiosk.admin_email,
-    time: formatTime(kiosk.timezone),
-    answers: readAnswers(body.answers, kioskFlow(kiosk, kiosk.office_phone))
+    time: time,
+    subject: email.subject,
+    text: email.text,
+    answers: entered
   });
 
   await env.DB.prepare('INSERT INTO checkins (facility_id, clinician_id, status) VALUES (?, ?, ?)')
@@ -49,18 +69,47 @@ export async function checkin(request, env, kiosk, headers) {
   return json({ ok: status === 'sent', status: status }, status === 'sent' ? 200 : 202, headers);
 }
 
-// What the visitor typed on information screens, as "Name: value" lines for the email.
-// Only this kiosk's field names are accepted. Nothing here is stored.
+// What the visitor typed on information screens, as [{ name, value }] in screen order.
+// Only this kiosk's field names are accepted, and only fields the visitor was shown
+// (a blank optional field comes through as ''). Nothing here is stored.
 function readAnswers(answers, flow) {
-  if (!answers || typeof answers !== 'object') return '';
-  const lines = [];
+  const given = answers && typeof answers === 'object' ? answers : {};
+  const list = [];
   flow.screens.forEach(function (s) {
     (s.fields || []).forEach(function (f) {
-      const value = str(answers[f.name], 200).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
-      if (value) lines.push(f.name + ': ' + value);
+      if (!Object.prototype.hasOwnProperty.call(given, f.name)) return;
+      list.push({ name: f.name, value: str(given[f.name], 200).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim() });
     });
   });
-  return lines.length ? 'They entered:\n' + lines.join('\n') + '\n\n' : '';
+  return list;
+}
+
+// "Name: value" lines for the answers that aren't blank.
+function answerLines(answers) {
+  return answers.filter(function (a) { return a.value; })
+    .map(function (a) { return a.name + ': ' + a.value; }).join('\n');
+}
+
+// Fills {Person}, {Time}, {Kiosk}, {All answers} and {Field name} in an owner's template.
+// A tag the visitor never reached stays as typed, so the owner can see what was missing.
+function fillTemplate(template, clinician, kiosk, time, answers) {
+  const tags = new Map([
+    ['person', clinician.name],
+    ['time', time],
+    ['kiosk', kiosk.label || 'Kiosk'],
+    ['all answers', answerLines(answers)]
+  ]);
+  answers.forEach(function (a) { tags.set(a.name.toLowerCase(), a.value); });
+  const fill = function (text) {
+    return text.replace(/\{([^{}]+)\}/g, function (match, name) {
+      const key = name.trim().toLowerCase();
+      return tags.has(key) ? tags.get(key) : match;
+    });
+  };
+  return {
+    subject: fill(template.subject).replace(/\s+/g, ' ').trim().slice(0, 200) || 'Check-in at ' + time,
+    text: fill(template.body)
+  };
 }
 
 // Emails one clinician, or tells the facility admin why that couldn't happen.
@@ -76,11 +125,7 @@ async function notifyClinician(env, n) {
   if (!success) return 'rate_limited';
 
   try {
-    await sendEmail(env, n.email, 'Your client has arrived (' + n.time + ')',
-      'Hi ' + n.name + ',\n\n' +
-      'A client checked in at the lobby kiosk at ' + n.time + ' and is waiting for you.\n\n' +
-      n.answers +
-      '- Lobby kiosk', 'Lobby Kiosk');
+    await sendEmail(env, n.email, n.subject, n.text, 'Lobby Kiosk');
     return 'sent';
   } catch (e) {
     console.error('Email send failed:', e && e.message);
