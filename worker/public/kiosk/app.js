@@ -13,8 +13,7 @@
   // { facility, flow, clinicians } from the server; see worker/src/flow.js for the flow format.
   let data = null;
   let current = null;
-  // Screens visited before this one, for Back. Cleared at the start and once someone is
-  // notified, since going back then could send a second notice.
+  // Screens visited before this one, for Back. Cleared at the start.
   let trail = [];
   // What this visitor typed on information screens, by field name. Kept only on the iPad,
   // and only until the kiosk returns to the start, so later screens can show it. Every
@@ -119,7 +118,8 @@
       answers = {};
       person = '';
     }
-    backBtn.hidden = !trail.length;
+    // Every screen but the start gets Back, unless it returns to the start on its own.
+    backBtn.hidden = !trail.length || screen.returnAfter > 0;
 
     const message = fill(screen.message);
     messageEl.textContent = message;
@@ -233,8 +233,7 @@
       return c ? c.name : '';
     }).filter(Boolean);
     person = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : (names[0] || '');
-    trail = [];
-    show(then);
+    go(then);
     personIds.forEach(function (id) {
       fetch(CONFIG.apiBaseUrl + '/api/kiosk/' + encodeURIComponent(kioskToken) + '/checkin', {
         method: 'POST',

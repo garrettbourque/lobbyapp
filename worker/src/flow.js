@@ -26,7 +26,8 @@
 //                                             'people'), enabled once every required field
 //                                             is filled in
 // } ] }
-// The first screen is where the kiosk starts. The kiosk adds a Back button to the others.
+// The first screen is where the kiosk starts. The kiosk adds a Back button to the others,
+// except those with returnAfter above 0.
 // Answers go in the notice email when someone is notified, and are never stored.
 
 import { str } from './util.js';
