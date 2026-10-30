@@ -27,7 +27,7 @@
 //                                             is filled in
 // } ] }
 // The first screen is where the kiosk starts. The kiosk adds a Back button to the others,
-// except those with returnAfter above 0.
+// except those with returnAfter above 0 and the one shown right after an email.
 // Answers go in the notice email when someone is notified, and are never stored.
 
 import { str } from './util.js';

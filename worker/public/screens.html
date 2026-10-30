@@ -40,7 +40,7 @@
             </div>
           </div>
         </div>
-        <p class="muted" style="margin: 0">The kiosk starts on the first screen. Every other screen gets a Back button, unless its auto return is set above 0: then it has no Back button and goes back to the start after that many seconds. A screen with auto return at 0 goes back to the start after a minute without a tap. To show the name of the person a visitor notified, put {Person} in a message, like "{Person} has been notified that you're here."
+        <p class="muted" style="margin: 0">The kiosk starts on the first screen. Every other screen gets a Back button, except the screen shown right after an email is sent (so visitors can't send it twice) and screens with auto return set above 0, which go back to the start after that many seconds. A screen with auto return at 0 goes back to the start after a minute without a tap. To show the name of the person a visitor notified, put {Person} in a message, like "{Person} has been notified that you're here."
           <button class="btn btn-secondary btn-small" type="button" id="reset">Reset to the default screens</button></p>
       </section>
 
