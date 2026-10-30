@@ -9,6 +9,7 @@
 //   GET  /api/account                 everything the dashboard shows
 //   PUT  /api/facility
 //   POST /api/clinicians, PUT|DELETE /api/clinicians/:id
+//   POST /api/clinicians/:id/verify   has Cloudflare send that person a verification email
 //   POST /api/kiosks, PUT|DELETE /api/kiosks/:token (PUT takes { label, flow })
 //   POST /api/templates, PUT|DELETE /api/templates/:id ({ name, subject, body })
 // Anyone:
@@ -19,7 +20,7 @@
 import { json, fail } from './util.js';
 import { getUser, signup, signin, signout, forgotPassword, resetPassword } from './auth.js';
 import { findKiosk, getKiosk, checkin } from './kiosk.js';
-import { getAccount, updateFacility, addClinician, updateClinician, removeClinician, addKiosk, updateKiosk, removeKiosk,
+import { getAccount, updateFacility, addClinician, updateClinician, verifyClinician, removeClinician, addKiosk, updateKiosk, removeKiosk,
   addTemplate, updateTemplate, removeTemplate, contact } from './account.js';
 
 export default {
@@ -77,6 +78,9 @@ async function handleApi(request, env, url) {
   const clinicianMatch = path.match(/^\/api\/clinicians\/([A-Za-z0-9_-]{1,32})$/);
   if (clinicianMatch && method === 'PUT') return updateClinician(request, env, user, clinicianMatch[1]);
   if (clinicianMatch && method === 'DELETE') return removeClinician(env, user, clinicianMatch[1]);
+
+  const verifyMatch = path.match(/^\/api\/clinicians\/([A-Za-z0-9_-]{1,32})\/verify$/);
+  if (verifyMatch && method === 'POST') return verifyClinician(env, user, verifyMatch[1]);
 
   const kioskOwned = path.match(/^\/api\/kiosks\/([A-Za-z0-9_-]{16,64})$/);
   if (kioskOwned && method === 'PUT') return updateKiosk(request, env, user, kioskOwned[1]);

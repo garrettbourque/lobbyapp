@@ -4,6 +4,7 @@
 import { json, fail, readJson, str, isEmail, randomId, TIMEZONES } from './util.js';
 import { trySendEmail } from './email.js';
 import { kioskFlow, validateFlow } from './flow.js';
+import { verificationStatus, sendVerification } from './verify.js';
 
 const MAX_CLINICIANS = 50;
 const MAX_KIOSKS = 10;
@@ -22,7 +23,7 @@ export async function getAccount(env, user, origin) {
   if (!f) return json({ ok: true, user: { email: user.email }, facility: null });
 
   const [clinicians, kiosks, templates, checkins] = await env.DB.batch([
-    env.DB.prepare('SELECT id, name, email, sort_order FROM clinicians WHERE facility_id = ? AND active = 1 ORDER BY sort_order, name').bind(f.id),
+    env.DB.prepare('SELECT id, name, email, sort_order, verify_sent_at, verify_day, verify_count FROM clinicians WHERE facility_id = ? AND active = 1 ORDER BY sort_order, name').bind(f.id),
     env.DB.prepare('SELECT token, label, welcome_message, flow, created_at FROM kiosks WHERE facility_id = ? ORDER BY created_at').bind(f.id),
     env.DB.prepare('SELECT id, name, subject, body FROM email_templates WHERE facility_id = ? ORDER BY name').bind(f.id),
     env.DB.prepare(
@@ -30,6 +31,7 @@ export async function getAccount(env, user, origin) {
       'WHERE k.facility_id = ? ORDER BY k.id DESC LIMIT 25'
     ).bind(f.id)
   ]);
+  const verified = await verificationStatus(env, clinicians.results);
 
   return json({
     ok: true,
@@ -41,8 +43,8 @@ export async function getAccount(env, user, origin) {
       timezone: f.timezone
     },
     timezones: TIMEZONES,
-    clinicians: clinicians.results.map(function (c) {
-      return { id: c.id, name: c.name, email: c.email || '', sortOrder: c.sort_order };
+    clinicians: clinicians.results.map(function (c, i) {
+      return Object.assign({ id: c.id, name: c.name, email: c.email || '', sortOrder: c.sort_order }, verified[i]);
     }),
     kiosks: kiosks.results.map(function (k) {
       return {
@@ -104,10 +106,20 @@ export async function updateClinician(request, env, user, id) {
   const c = readClinician(await readJson(request));
   if (c.error) return fail(c.error);
 
-  const result = await env.DB.prepare('UPDATE clinicians SET name = ?, email = ?, sort_order = ? WHERE id = ? AND facility_id = ? AND active = 1')
-    .bind(c.name, c.email, c.sortOrder, id, f.id).run();
+  // A new address starts verification over, so the resend wait from the old one doesn't apply.
+  const result = await env.DB.prepare(
+    'UPDATE clinicians SET name = ?, email = ?, sort_order = ?, ' +
+    'verify_sent_at = CASE WHEN email IS ? THEN verify_sent_at END ' +
+    'WHERE id = ? AND facility_id = ? AND active = 1'
+  ).bind(c.name, c.email, c.sortOrder, c.email, id, f.id).run();
   if (!result.meta.changes) return fail('Not found.', 404);
   return json({ ok: true });
+}
+
+export async function verifyClinician(env, user, id) {
+  const f = await ownedFacility(env, user);
+  if (!f) return fail('No business on this account.', 404);
+  return sendVerification(env, f, id);
 }
 
 export async function removeClinician(env, user, id) {

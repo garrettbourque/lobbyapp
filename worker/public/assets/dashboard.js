@@ -62,6 +62,10 @@
   }
 
   function renderClinicians() {
+    // When the site can't check verification, people are confirmed by hand on request.
+    if (state.clinicians.some(function (c) { return c.email && c.verify === 'unknown'; })) {
+      document.getElementById('verify-hint').innerHTML = 'During the beta, each new email address needs a one-time confirmation before it receives notices. <a href="/contact">Contact us</a> after adding someone new.';
+    }
     var list = document.getElementById('clinicians');
     list.innerHTML = '';
     if (!state.clinicians.length) {
@@ -79,7 +83,8 @@
     var row = el('li', {}, [
       el('div', { className: 'who' }, [
         el('strong', { text: c.name }),
-        el('span', { text: c.email || 'No email yet (check-ins alert your alert email)' })
+        el('span', { text: c.email || 'No email yet (check-ins alert your alert email)' }),
+        verifyLine(c)
       ]),
       el('div', { className: 'row-actions' }, [edit, remove])
     ]);
@@ -100,6 +105,62 @@
       });
     });
     return row;
+  }
+
+  var VERIFY_TEXT = {
+    confirmed: 'Confirmed',
+    waiting: 'Waiting for confirmation',
+    none: 'Not verified'
+  };
+
+  // Whether this person's email is confirmed, with a button to send (or resend) the
+  // verification email. Nothing shows when the status can't be checked.
+  function verifyLine(c) {
+    if (!c.email || !VERIFY_TEXT[c.verify]) return null;
+    var label = el('span', { className: 'status verify-' + c.verify, text: VERIFY_TEXT[c.verify] });
+    if (c.verify === 'confirmed') return el('div', { className: 'verify-line' }, [label]);
+
+    var button = el('button', {
+      type: 'button', className: 'btn btn-secondary btn-small',
+      text: c.verify === 'waiting' ? 'Resend verification' : 'Send verification email'
+    });
+    var note = el('span', { className: 'verify-note' });
+    var notice = el('div', { className: 'notice' });
+
+    // Grayed out until the resend wait is over, with the minutes left.
+    function update() {
+      var left = c.verifyAt ? Math.ceil((new Date(c.verifyAt).getTime() - Date.now()) / 60000) : 0;
+      if (c.verifyCapped) {
+        button.disabled = true;
+        note.textContent = 'Daily limit reached. Try again tomorrow.';
+      } else if (left > 0) {
+        button.disabled = true;
+        note.textContent = 'You can resend in ' + left + ' min.';
+      } else {
+        button.disabled = false;
+        note.textContent = c.verify === 'waiting' ? 'Ask them to click the link in the email from Cloudflare.' : '';
+        return true;
+      }
+    }
+    if (!update()) {
+      var timer = setInterval(function () {
+        if (!document.body.contains(button)) clearInterval(timer);
+        else if (update()) clearInterval(timer);
+      }, 15000);
+    }
+
+    button.addEventListener('click', function () {
+      button.disabled = true;
+      api('POST', '/api/clinicians/' + encodeURIComponent(c.id) + '/verify').then(function (r) {
+        if (!r.data.ok) {
+          update();
+          Lobby.showNotice(notice, r.data.error);
+          return;
+        }
+        load();
+      });
+    });
+    return el('div', { className: 'verify-line' }, [label, button, note, notice]);
   }
 
   function clinicianEditRow(c) {

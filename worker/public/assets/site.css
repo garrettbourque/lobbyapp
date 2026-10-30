@@ -220,7 +220,7 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible {
 .list li + li { border-top: 1px solid var(--border); }
 .list .who { min-width: 0; }
 .list .who strong { display: block; }
-.list .who span { color: var(--muted); font-size: 0.9rem; word-break: break-all; }
+.list .who > span { color: var(--muted); font-size: 0.9rem; word-break: break-all; }
 .list .row-actions { display: flex; gap: 6px; }
 .list .empty { color: var(--muted); justify-content: center; }
 .list form { display: grid; gap: 8px; width: 100%; grid-template-columns: 1fr 1fr auto; align-items: end; }
@@ -286,4 +286,10 @@ th { color: var(--muted); font-weight: 600; font-size: 0.85rem; }
 .status { font-size: 0.82rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 .status-sent { background: var(--ok-soft); color: var(--ok); }
 .status-no_email, .status-rate_limited { background: var(--warn-soft); color: var(--warn); }
+.verify-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.verify-line .notice { margin: 0; flex-basis: 100%; }
+.verify-note { font-size: 0.85rem; color: var(--muted); }
+.verify-confirmed { background: var(--ok-soft); color: var(--ok); }
+.verify-waiting { background: var(--warn-soft); color: var(--warn); }
+.verify-none { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
 .status-failed { background: var(--danger-soft); color: var(--danger); }

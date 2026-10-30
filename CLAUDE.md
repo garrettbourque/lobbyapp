@@ -17,7 +17,8 @@ The owner switches between two Windows computers a couple of times a day.
 
 ## Things to know
 
-- To give a person a working notice email: add the address as a destination in Cloudflare Email Routing (zone lobbyapp.app), where the person must click a confirmation link once. Then set it from the dashboard (**Edit**) or with `node scripts/admin.mjs clinician set <clinicianId> --email <address>` from `worker/` (`node scripts/admin.mjs list` shows the ids).
+- To give a person a working notice email: their address must be a verified destination in Cloudflare Email Routing (the person clicks a confirmation link once). The dashboard's **Send verification email** button does this through the API (`worker/src/verify.js`: 10-minute resend wait, 5 sends per person and 20 per business a day). It needs the Worker secrets `CF_ACCOUNT_ID` and `CF_EMAIL_TOKEN` (a token with only "Email Routing Addresses Write"); without them the dashboard says to contact us, and the address can be added by hand in Email Routing. Addresses can also be set with `node scripts/admin.mjs clinician set <clinicianId> --email <address>` from `worker/` (`node scripts/admin.mjs list` shows the ids).
+- For local testing of verification, `worker/.dev.vars` (gitignored) can point `CF_API_BASE` at a fake API; wrangler dev only reads it at startup.
 
 - The account is on the free Workers plan, so email only reaches addresses verified in Email Routing. That applies to every customer's people and to password-reset emails. Workers Paid ($5/mo) lifts it; the owner said "not yet".
 - Changes to the production setup (DNS records, deploys, domain cutovers) need the owner's explicit go-ahead.
