@@ -1,4 +1,4 @@
-// Kiosk endpoints: an iPad identified by its secret token loads its facility's
+// Kiosk endpoints: a tablet identified by its secret token loads its facility's
 // clinicians and checks clients in against them.
 
 import { json, fail, readJson, str, formatTime } from './util.js';

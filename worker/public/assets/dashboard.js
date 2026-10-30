@@ -199,7 +199,7 @@
     var list = document.getElementById('kiosks');
     list.innerHTML = '';
     if (!state.kiosks.length) {
-      list.appendChild(el('li', { className: 'empty', text: 'No kiosks yet. Create a link for your iPad below.' }));
+      list.appendChild(el('li', { className: 'empty', text: 'No kiosks yet. Create a link for your tablet below.' }));
       return;
     }
     state.kiosks.forEach(function (k) {
@@ -221,7 +221,7 @@
       else { document.execCommand('copy'); done(); }
     });
     remove.addEventListener('click', function () {
-      if (!window.confirm('Remove "' + k.label + '"? Its link will stop working on that iPad.')) return;
+      if (!window.confirm('Remove "' + k.label + '"? Its link will stop working on that tablet.')) return;
       remove.disabled = true;
       api('DELETE', '/api/kiosks/' + encodeURIComponent(k.token)).then(function (r) {
         if (!r.data.ok) {

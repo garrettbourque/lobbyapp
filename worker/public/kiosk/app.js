@@ -7,7 +7,7 @@
   const buttonsEl = document.getElementById('buttons');
   const countdownEl = document.getElementById('countdown');
 
-  // Secret from the kiosk link (lobbyapp.app/?kiosk=...) naming this iPad's facility.
+  // Secret from the kiosk link (lobbyapp.app/?kiosk=...) naming this tablet's facility.
   const kioskToken = new URLSearchParams(window.location.search).get('kiosk');
 
   // { facility, flow, clinicians } from the server; see worker/src/flow.js for the flow format.
@@ -16,7 +16,7 @@
   // Screens visited before this one, for Back. Cleared at the start and once someone is
   // emailed, since going back then could send a second email.
   let trail = [];
-  // What this visitor typed on information screens, by field name. Kept only on the iPad,
+  // What this visitor typed on information screens, by field name. Kept only on the tablet,
   // and only until the kiosk returns to the start, so later screens can show it. Every
   // field shown gets an entry, even if left blank, so the email can tell blank from never asked.
   let answers = {};
@@ -256,7 +256,7 @@
   }
 
   // The kiosk's screens and people come from the server and are refreshed
-  // periodically, so edits show up without touching the iPad. The last good
+  // periodically, so edits show up without touching the tablet. The last good
   // copy is cached so a network blip at startup doesn't blank the kiosk.
   function loadKiosk() {
     const cacheKey = 'kiosk:' + kioskToken;

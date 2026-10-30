@@ -47,12 +47,12 @@
 
       <section class="card panel">
         <h2>Kiosks</h2>
-        <p class="muted">Open a kiosk link on your iPad in Safari, tap <strong>Share &rarr; Add to Home Screen</strong>, then lock it with <strong>Guided Access</strong> (Settings &rarr; Accessibility). Keep the link private: anyone with it can check clients in. Use <strong>Edit screens</strong> to choose what each kiosk shows and what its buttons do; changes reach the iPad within a few minutes.</p>
+        <p class="muted">Open a kiosk link on your tablet and add it to the home screen. On an iPad, open it in Safari, tap <strong>Share &rarr; Add to Home Screen</strong>, then lock it with <strong>Guided Access</strong> (Settings &rarr; Accessibility). On an Android tablet, open it in Chrome, tap <strong>&#8942; &rarr; Add to Home screen</strong>, then lock it with <strong>App pinning</strong> (Settings &rarr; Security). Keep the link private: anyone with it can check clients in. Use <strong>Edit screens</strong> to choose what each kiosk shows and what its buttons do; changes reach the kiosk within a few minutes.</p>
         <ul class="list" id="kiosks"></ul>
         <form id="add-kiosk" class="inline-add" novalidate>
           <div style="grid-column: span 2">
             <label for="kiosk-label">Kiosk name</label>
-            <input id="kiosk-label" name="label" type="text" maxlength="40" placeholder="Lobby iPad">
+            <input id="kiosk-label" name="label" type="text" maxlength="40" placeholder="Lobby tablet">
           </div>
           <button class="btn" type="submit">Create kiosk link</button>
           <div class="notice" style="grid-column: 1 / -1; margin: 0"></div>

@@ -139,7 +139,7 @@ export async function addKiosk(request, env, user) {
   if (count.n >= MAX_KIOSKS) return fail('You can have up to ' + MAX_KIOSKS + ' kiosks.');
 
   await env.DB.prepare('INSERT INTO kiosks (token, facility_id, label) VALUES (?, ?, ?)')
-    .bind(randomId(24), f.id, str(body.label, 40) || 'Lobby iPad').run();
+    .bind(randomId(24), f.id, str(body.label, 40) || 'Lobby tablet').run();
   return json({ ok: true });
 }
 
@@ -163,7 +163,7 @@ export async function updateKiosk(request, env, user, token) {
 
   // A saved flow carries its own welcome message, so the old column is cleared.
   const result = await env.DB.prepare('UPDATE kiosks SET label = ?, flow = ?, welcome_message = NULL WHERE token = ? AND facility_id = ?')
-    .bind(str(body.label, 40) || 'Lobby iPad', flow, token, f.id).run();
+    .bind(str(body.label, 40) || 'Lobby tablet', flow, token, f.id).run();
   if (!result.meta.changes) return fail('Not found.', 404);
   return json({ ok: true });
 }

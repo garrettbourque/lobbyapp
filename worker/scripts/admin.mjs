@@ -7,7 +7,7 @@
 //   node scripts/admin.mjs clinician add <facilityId> "Name" [--email address] [--order n]
 //   node scripts/admin.mjs clinician set <clinicianId> [--name ..] [--email address|none] [--order n]
 //   node scripts/admin.mjs clinician remove <clinicianId>
-//   node scripts/admin.mjs kiosk add <facilityId> [--label "Lobby iPad"]
+//   node scripts/admin.mjs kiosk add <facilityId> [--label "Lobby tablet"]
 //   node scripts/admin.mjs kiosk remove <token>
 //
 // Add --local to work against the local `wrangler dev` database instead of production.
@@ -168,7 +168,7 @@ if (group === 'list') {
   if (!fid) usage();
   const token = id(24);
   run('INSERT INTO kiosks (token, facility_id, label) VALUES (' + [token, fid, opt('--label') || null].map(sql).join(', ') + ')');
-  console.log('Kiosk link (open this on the iPad, then Add to Home Screen):\n  ' + SITE + '?kiosk=' + token);
+  console.log('Kiosk link (open this on the tablet, then add it to the home screen):\n  ' + SITE + '?kiosk=' + token);
 } else if (group === 'kiosk' && action === 'remove') {
   const token = rest.shift();
   if (!token) usage();

@@ -1,6 +1,6 @@
 // Lobby kiosk configuration
 //
-// Each iPad opens its kiosk link (lobbyapp.app/?kiosk=...), which loads that kiosk's
+// Each tablet opens its kiosk link (lobbyapp.app/?kiosk=...), which loads that kiosk's
 // screens and its people from the API. Owners manage those from their dashboard.
 
 const CONFIG = {
