@@ -98,6 +98,14 @@ export async function signup(request, env) {
     env.DB.prepare('INSERT INTO facilities (id, name, admin_email, owner_user_id) VALUES (?, ?, ?, ?)')
       .bind(randomId(6), businessName, email, userId)
   ]);
+  // Let the site owner know. A failed send doesn't affect the new account.
+  if (env.CONTACT_EMAIL) {
+    const when = new Date().toLocaleString('en-US', {
+      timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+    });
+    await trySendEmail(env, env.CONTACT_EMAIL, 'New LobbyApp sign-up: ' + businessName,
+      'Business: ' + businessName + '\nAccount email: ' + email + '\nTime: ' + when + ' (Central)\n');
+  }
   return json({ ok: true }, 200, { 'Set-Cookie': await startSession(env, userId) });
 }
 
